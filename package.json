@@ -1,0 +1,47 @@
+{
+  "name": "vue-mirco-frame",
+  "version": "1.0.0",
+  "description": "vue-mirco-frame",
+  "main": "lib/index.js",
+  "scripts": {
+    "start": "npm run githook && rollup --config ./config/rollup.dev.conf.js -w && livereload 'src/' ",
+    "githook": "mkdir -p .git/hooks/ && cp ./pre-commit .git/hooks/ && chmod +x .git/hooks/pre-commit || true",
+    "build": "NODE_ENV=production rollup --config ./config/rollup.prod.conf.js",
+    "test": "jest --config"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@babel/core": "^7.7.5",
+    "@babel/preset-env": "^7.7.6",
+    "@babel/preset-react": "^7.8.3",
+    "@types/jest": "^24.0.23",
+    "babel-plugin-external-helpers": "^6.22.0",
+    "http-server": "^0.12.0",
+    "jest": "^24.9.0",
+    "lodash": "^4.17.15",
+    "prettier": "^1.19.1",
+    "rollup": "^1.27.13",
+    "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-json": "^4.0.0",
+    "rollup-plugin-live-server": "^1.0.3",
+    "rollup-plugin-livereload": "^1.0.4",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "rollup-plugin-serve": "^1.0.1",
+    "rollup-plugin-sourcemaps": "^0.4.2",
+    "rollup-plugin-typescript": "^1.0.1",
+    "rollup-plugin-typescript2": "^0.25.3",
+    "ts-jest": "^24.2.0",
+    "tslint": "^6.0.0-beta0",
+    "tslint-config-airbnb": "^5.11.2",
+    "tslint-config-prettier": "^1.18.0",
+    "typescript": "^3.7.3"
+  },
+  "dependencies": {
+    "@types/react": "^16.9.19",
+    "@types/react-dom": "^16.9.5",
+    "react": "^16.12.0",
+    "react-dom": "^16.12.0"
+  }
+}
