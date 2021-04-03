@@ -7,9 +7,6 @@ const originPath = process.cwd();
 const devConfig = {
   output: {
     file: `${originPath}/demo/external-lib/index.js`,
-    name: 'Elf',
-    format: 'esm',
-    sourcemap: true,
   },
   plugins: [
     // serve({

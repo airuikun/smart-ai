@@ -1,16 +1,23 @@
 {
   "compilerOptions": {
-    "declaration": true,
-    "outDir": "./lib",
+    "outDir": "",
+    "jsx": "react",
     "target": "es5",
-    "module": "es2015",
+    "module": "ES2015",
+    "lib": [
+      "es2015",
+      "dom",
+      "scripthost",
+      "dom.iterable"
+    ],
     "moduleResolution": "node",
     "sourceMap": true,
     "strict": true,
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
+    "allowJs": true,
     "baseUrl": "./src"
   },
-  "include": ["src"],
+  "include": ["src", "typings"],
   "exclude": ["node_modules"]
 }

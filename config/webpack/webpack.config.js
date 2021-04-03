@@ -8,7 +8,7 @@ const originPath = process.cwd();
 const demoPath = `${originPath}/demo`;
 module.exports = {
   mode: 'development',
-  entry: `${demoPath}/src/index.js`,
+  entry: `${demoPath}/src/index.tsx`,
   output: {
     filename: 'app.js',
     path: `${demoPath}/dist`,
@@ -16,7 +16,7 @@ module.exports = {
   devtool: 'source-map',
   externals: [],
   devServer: {
-    port: 3190,
+    port: 9999,
     contentBase: `${demoPath}/src`,
     historyApiFallback: true,
   },

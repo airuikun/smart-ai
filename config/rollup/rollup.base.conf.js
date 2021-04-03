@@ -11,11 +11,11 @@ const isDev = mode === 'development';
 const originPath = process.cwd();
 
 export default {
-  input: `${originPath}/src/single-spa.js`,
+  input: `${originPath}/src/index.tsx`,
   output: {
     file: `${originPath}/lib/index.js`,
-    name: 'Elf',
-    format: 'esm',
+    name: 'react-vue-mirco-frame',
+    format: 'umd',
     sourcemap: true,
   },
   watch: {

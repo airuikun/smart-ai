@@ -1,10 +1,12 @@
 {
   "presets": [
     ["@babel/preset-env", {
-      "es2015": {
-        "modules": false
+      "modules": false,
+      "targets": {
+        "browsers": [ "ie >= 11", "last 2 versions" ]
       }
-    }]
+    }],
+    "@babel/preset-react"
   ],
-  "plugins": ["external-helpers"]
+  "plugins": ["@babel/plugin-syntax-dynamic-import"]
 }
