@@ -32,6 +32,7 @@
     "prettier": "^1.19.1",
     "rollup": "^1.27.13",
     "rollup-plugin-babel": "^4.3.3",
+    "rollup-plugin-clear": "^2.0.7",
     "rollup-plugin-commonjs": "^10.1.0",
     "rollup-plugin-json": "^4.0.0",
     "rollup-plugin-live-server": "^1.0.3",
@@ -55,6 +56,7 @@
   "dependencies": {
     "@types/react": "^16.9.19",
     "@types/react-dom": "^16.9.5",
+    "axios": "^0.19.2",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "single-spa": "^4.4.3",

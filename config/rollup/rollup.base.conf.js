@@ -1,4 +1,4 @@
-import resolve from 'rollup-plugin-node-resolve';
+// import resolve from 'rollup-plugin-node-resolve';
 import commonjs from 'rollup-plugin-commonjs';
 import json from 'rollup-plugin-json';
 import babel from 'rollup-plugin-babel';
@@ -15,7 +15,7 @@ export default {
   output: {
     file: `${originPath}/lib/index.js`,
     name: 'react-vue-mirco-frame',
-    format: 'umd',
+    format: 'esm',
     sourcemap: true,
   },
   watch: {
@@ -33,7 +33,7 @@ export default {
     }),
     json(),
     commonjs(),
-    resolve(),
+    // resolve(),
     sourcemaps(),
   ]
 };
