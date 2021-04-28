@@ -8,6 +8,7 @@
 
 ```js
   import React, { useState } from 'react';
+  import VueIFrame from 'react-vue-mirco-frame';
   const Test = () => (
     const [active, setActive] = useState(true);
     <VueIFrame
