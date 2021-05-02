@@ -19,4 +19,8 @@
   )
 ```
 </br>
-url接收的是远程服务器上的vue组件(请遵循umd规范)</br>
+|  | 类型 | 功能 |
+| ------ | ------ | ------ |
+| url | string | 远程vue组件 |
+| name | string | 远程vue组件的名字(将根据这个name构建挂载节点) |
+| activation | boolean | 是否挂载 |
