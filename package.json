@@ -1,6 +1,6 @@
 {
   "name": "react-vue-mirco-frame",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "react-vue-mirco-frame",
   "main": "lib/index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "start:rollup": "NODE_ENV=development rollup --config ./config/rollup/rollup.dev.conf.js -w",
     "start:demo": "node_modules/.bin/webpack-dev-server --config config/webpack/webpack.config.js",
     "start2": "NODE_ENV=development rollup --config ./config/rollup.dev.conf.js -w && livereload 'src/' ",
-    "build": "NODE_ENV=production rollup --config ./config/rollup.prod.conf.js",
+    "build": "NODE_ENV=production rollup --config ./config/rollup/rollup.prod.conf.js",
     "test": "jest --config"
   },
   "author": "",
@@ -62,5 +62,12 @@
     "single-spa": "^4.4.3",
     "single-spa-vue": "^1.7.0",
     "vue": "^2.6.11"
-  }
+  },
+  "keywords": [
+    "react-mirco-frontends",
+    "vue-mirco-frontends",
+    "react-vue-mirco-frontends",
+    "mirco-frontends",
+    "react-vue-mirco-frame"
+  ]
 }
