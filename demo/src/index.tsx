@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import VueIFrame from '../external-lib/index';
+// import VueIFrame from '../external-lib/index';
+import VueIFrame from '../../src/index';
+import { Tabs } from 'antd';
+import 'antd/dist/antd.css';
+
+const TabPane = Tabs.TabPane;
 
 const Test: React.FC<{}> = () => {
   const [ number, setNumber ] = useState<number>(1);
@@ -17,16 +22,47 @@ const Test: React.FC<{}> = () => {
         <button onClick={handleClick3}>change iframe active2</button>
       </div>
       <div>
-        <VueIFrame
+        <Tabs>
+          <TabPane
+            tab={'状态跟踪'}
+            key="1"
+            className="list-trace-tab"
+          >
+          {/* <VueFrame
+            url="http://127.0.0.1:8877/vueComponent2.umd.js"
+            name="vueComponent2"
+            activation={true} /> */}
+             <VueIFrame
+              url="http://127.0.0.1:8877/vueComponent1.umd.js"
+              name="vueComponent1"
+              activation={active1}
+              extraProps={{
+                text: '可以远程传参',
+                dataName: ['ding1', 'ding2', 'ding3'],
+                dataNumber: [5, 10, 15],
+              }}
+            />
+          </TabPane>
+          <Tabs.TabPane
+            tab={'查看日志'}
+            key="2"
+            className="list-trace-log"
+          >
+            <div className="log-dialog">
+              这是第二个tab
+            </div>
+          </Tabs.TabPane>
+        </Tabs>
+        {/* <VueIFrame
           url="http://127.0.0.1:8877/vueComponent1.umd.js"
           name="vueComponent1"
           activation={active1}
-        />
-        <VueIFrame
+        /> */}
+        {/* <VueIFrame
           url="http://127.0.0.1:8877/vueComponent2.umd.js"
           name="vueComponent2"
           activation={active2}
-        />
+        /> */}
       </div>
     </div>
   )
