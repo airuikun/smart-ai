@@ -50,11 +50,36 @@ export default class VueIframe extends React.Component<IProps, any> {
     this.rootNode.id = this.currentName;
   }
 
+  private registerVueComponent = (id: string, vueComponent: Object) => {
+    const vueInstance = singleSpaVue({
+      Vue,
+      appOptions: {
+        el: `#${id}`,
+        render: (h: any) => h('div', { attrs: { id } }, [h(vueComponent, {
+          props: { ...this.props.extraProps }
+        })])
+      }
+    });
+    return ({
+      bootstrap: vueInstance.bootstrap,
+      mount: vueInstance.mount,
+      unmount: vueInstance.unmount,
+    })
+  }
+
+  private getBoolean: () => boolean = () => this.isMount;
+
+  private mount = () => (this.isMount = true) && start();
+
+  private unmount = () => (this.isMount = false) || start();
+
+  componentDidUpdate = () => this.props.activation ? this.mount() : this.unmount();
+
   /**
    * componentWillUnmount被调用时候不一定就是出错
    * 但是贸然地在react项目中挂载vue组件可能出现问题
-   * 当出现问题的时候react组件会被卸载 此时会调用willUnmount
-   * 这个时候应该确认下项目是否还正常运行
+   * 当出现问题的时候react组件会被卸载 此时会调用componentWillUnmount
+   * 这个时候应该确认下项目是否还正常运行(八成报错)
    */
   componentWillUnmount = () => this.rootNodeWrapper.current?.removeChild(this.rootNode);
   
@@ -99,34 +124,5 @@ export default class VueIframe extends React.Component<IProps, any> {
     if (this.props.activation) this.mount();
   }
 
-  componentDidUpdate = () => this.props.activation ? this.mount() : this.unmount();
-
-  private registerVueComponent = (id: string, vueComponent: Object) => {
-    const vueInstance = singleSpaVue({
-      Vue,
-      appOptions: {
-        el: `#${id}`,
-        render: (h: any) => h('div', { attrs: { id } }, [h(vueComponent, {
-          props: { ...this.props.extraProps }
-        })])
-      }
-    });
-    return ({
-      bootstrap: vueInstance.bootstrap,
-      mount: vueInstance.mount,
-      unmount: vueInstance.unmount,
-    })
-  }
-
-  private getBoolean: () => boolean = () => this.isMount;
-
-  private mount = () => (this.isMount = true) && start();
-
-  private unmount = () => (this.isMount = false) || start();
-
-  render() {
-    return (
-      <div ref={this.rootNodeWrapper}></div>
-    )
-  }
+  render = () => (<div ref={this.rootNodeWrapper} />)
 }

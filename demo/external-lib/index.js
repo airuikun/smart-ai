@@ -1,6 +1,6 @@
 import React from 'react';
 import Vue from 'vue';
-import { registerApplication, start } from 'single-spa';
+import { start, registerApplication } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
 import axios from 'axios';
 
@@ -67,12 +67,51 @@ function (_super) {
 
     _this.rootNodeWrapper = React.createRef(); // vue挂载节点是根据el再往上找它的爹
 
+    _this.registerVueComponent = function (id, vueComponent) {
+      var vueInstance = singleSpaVue({
+        Vue: Vue,
+        appOptions: {
+          el: "#" + id,
+          render: function render(h) {
+            return h('div', {
+              attrs: {
+                id: id
+              }
+            }, [h(vueComponent, {
+              props: __assign({}, _this.props.extraProps)
+            })]);
+          }
+        }
+      });
+      return {
+        bootstrap: vueInstance.bootstrap,
+        mount: vueInstance.mount,
+        unmount: vueInstance.unmount
+      };
+    };
+
+    _this.getBoolean = function () {
+      return _this.isMount;
+    };
+
+    _this.mount = function () {
+      return (_this.isMount = true) && start();
+    };
+
+    _this.unmount = function () {
+      return (_this.isMount = false) || start();
+    };
+
+    _this.componentDidUpdate = function () {
+      return _this.props.activation ? _this.mount() : _this.unmount();
+    };
     /**
      * componentWillUnmount被调用时候不一定就是出错
      * 但是贸然地在react项目中挂载vue组件可能出现问题
-     * 当出现问题的时候react组件会被卸载 此时会调用willUnmount
-     * 这个时候应该确认下项目是否还正常运行
+     * 当出现问题的时候react组件会被卸载 此时会调用componentWillUnmount
+     * 这个时候应该确认下项目是否还正常运行(八成报错)
      */
+
 
     _this.componentWillUnmount = function () {
       var _a;
@@ -125,43 +164,10 @@ function (_super) {
       if (_this.props.activation) _this.mount();
     };
 
-    _this.componentDidUpdate = function () {
-      return _this.props.activation ? _this.mount() : _this.unmount();
-    };
-
-    _this.registerVueComponent = function (id, vueComponent) {
-      var vueInstance = singleSpaVue({
-        Vue: Vue,
-        appOptions: {
-          el: "#" + id,
-          render: function render(h) {
-            return h('div', {
-              attrs: {
-                id: id
-              }
-            }, [h(vueComponent, {
-              props: __assign({}, _this.props.extraProps)
-            })]);
-          }
-        }
+    _this.render = function () {
+      return React.createElement("div", {
+        ref: _this.rootNodeWrapper
       });
-      return {
-        bootstrap: vueInstance.bootstrap,
-        mount: vueInstance.mount,
-        unmount: vueInstance.unmount
-      };
-    };
-
-    _this.getBoolean = function () {
-      return _this.isMount;
-    };
-
-    _this.mount = function () {
-      return (_this.isMount = true) && start();
-    };
-
-    _this.unmount = function () {
-      return (_this.isMount = false) || start();
     };
 
     var url = props.url,
@@ -180,12 +186,6 @@ function (_super) {
     _this.rootNode.id = _this.currentName;
     return _this;
   }
-
-  VueIframe.prototype.render = function () {
-    return React.createElement("div", {
-      ref: this.rootNodeWrapper
-    });
-  };
 
   return VueIframe;
 }(React.Component);
