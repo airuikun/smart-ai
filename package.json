@@ -1,6 +1,6 @@
 {
   "name": "react-vue-mirco-frame",
-  "version": "0.0.2",
+  "version": "0.0.4",
   "description": "react-vue-mirco-frame",
   "main": "lib/index.js",
   "scripts": {
@@ -9,7 +9,8 @@
     "start:demo": "node_modules/.bin/webpack-dev-server --config config/webpack/webpack.config.js",
     "start2": "NODE_ENV=development rollup --config ./config/rollup.dev.conf.js -w && livereload 'src/' ",
     "build": "NODE_ENV=production rollup --config ./config/rollup/rollup.prod.conf.js",
-    "test": "jest --config"
+    "test": "jest --config",
+    "publish:component": "npm run build && npm publish"
   },
   "author": "",
   "license": "ISC",
