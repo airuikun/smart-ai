@@ -33,14 +33,14 @@ const Test: React.FC<{}> = () => {
             name="vueComponent2"
             activation={true} /> */}
              <VueIFrame
-              url="http://127.0.0.1:8877/vueComponent1.umd.js"
-              name="vueComponent1"
-              activation={active1}
-              extraProps={{
-                text: '可以远程传参',
-                dataName: ['ding1', 'ding2', 'ding3'],
-                dataNumber: [5, 10, 15],
-              }}
+              url="http://127.0.0.1:8877/vueComponent2.umd.js"
+              name="vueComponent2"
+              visible={active1}
+              // extraProps={{
+              //   text: '可以远程传参',
+              //   dataName: ['ding1', 'ding2', 'ding3'],
+              //   dataNumber: [5, 10, 15],
+              // }}
             />
           </TabPane>
           <Tabs.TabPane
