@@ -2,7 +2,22 @@ import React from 'react';
 import Vue from 'vue';
 import { mountRootParcel } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
-import axios from 'axios';
+
+function _typeof(obj) {
+  "@babel/helpers - typeof";
+
+  if (typeof Symbol === "function" && typeof Symbol.iterator === "symbol") {
+    _typeof = function (obj) {
+      return typeof obj;
+    };
+  } else {
+    _typeof = function (obj) {
+      return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
+    };
+  }
+
+  return _typeof(obj);
+}
 
 /*! *****************************************************************************
 Copyright (c) Microsoft Corporation. All rights reserved.
@@ -44,6 +59,43 @@ var __assign = function() {
     return __assign.apply(this, arguments);
 };
 
+function __awaiter(thisArg, _arguments, P, generator) {
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : new P(function (resolve) { resolve(result.value); }).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+}
+
+function __generator(thisArg, body) {
+    var _ = { label: 0, sent: function() { if (t[0] & 1) throw t[1]; return t[1]; }, trys: [], ops: [] }, f, y, t, g;
+    return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() { return this; }), g;
+    function verb(n) { return function (v) { return step([n, v]); }; }
+    function step(op) {
+        if (f) throw new TypeError("Generator is already executing.");
+        while (_) try {
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
+            switch (op[0]) {
+                case 0: case 1: t = op; break;
+                case 4: _.label++; return { value: op[1], done: false };
+                case 5: _.label++; y = op[1]; op = [0]; continue;
+                case 7: op = _.ops.pop(); _.trys.pop(); continue;
+                default:
+                    if (!(t = _.trys, t = t.length > 0 && t[t.length - 1]) && (op[0] === 6 || op[0] === 2)) { _ = 0; continue; }
+                    if (op[0] === 3 && (!t || (op[1] > t[0] && op[1] < t[3]))) { _.label = op[1]; break; }
+                    if (op[0] === 6 && _.label < t[1]) { _.label = t[1]; t = op; break; }
+                    if (t && _.label < t[2]) { _.label = t[2]; _.ops.push(op); break; }
+                    if (t[2]) _.ops.pop();
+                    _.trys.pop(); continue;
+            }
+            op = body.call(thisArg, _);
+        } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
+        if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
+    }
+}
+
 var __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 
 Vue.prototype._init = function (options) {
@@ -59,35 +111,39 @@ function (_super) {
   __extends(VueIframe, _super);
 
   function VueIframe(props) {
-    var _this = _super.call(this, props) || this; // private rootNode: HTMLDivElement = document.createElement('div'); // vue组件挂载的root
-
+    var _this = _super.call(this, props) || this;
 
     _this.rootNodeWrapper = React.createRef(); // vue挂载节点是根据el再往上找它的爹
 
-    _this.vueWrapper1 = document.createElement('div');
-    _this.vueWrapper2 = document.createElement('div');
+    _this.vueWrapper1 = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
 
-    _this.registerVueComponent = function (el, vueComponent, id) {
-      var vueInstance = singleSpaVue({
-        Vue: Vue,
-        appOptions: {
-          el: typeof el === 'string' ? "#" + el : el,
-          render: function render(h) {
-            return h('div', {
-              attrs: {
-                id: id
-              }
-            }, [h(vueComponent, {
-              props: __assign({}, _this.props.extraProps)
-            })]);
+    _this.vueWrapper2 = document.createElement('div'); // 真正vue需要挂载的节点
+
+    _this.componentDidMount = function () {
+      return __awaiter(_this, void 0, void 0, function () {
+        var component, lifecycles;
+        return __generator(this, function (_a) {
+          switch (_a.label) {
+            case 0:
+              return [4
+              /*yield*/
+              , this.getOriginVueComponent()];
+
+            case 1:
+              component = _a.sent();
+              if (component && _typeof(component) !== 'object') return [2
+              /*return*/
+              ];
+              lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
+              this.parcel = mountRootParcel(lifecycles, {
+                domElement: '-'
+              });
+              return [2
+              /*return*/
+              ];
           }
-        }
+        });
       });
-      return {
-        bootstrap: vueInstance.bootstrap,
-        mount: vueInstance.mount,
-        unmount: vueInstance.unmount
-      };
     };
 
     _this.componentDidUpdate = function () {
@@ -123,79 +179,101 @@ function (_super) {
       _this.parcel.unmount();
     };
 
-    _this.componentDidMount = function () {
-      axios.get(_this.currentUrl).then(function (_a) {
-        var data = _a.data;
-        if (!data) throw Error('没有加载到远程vue组件');
-        var internalSelf = {
-          Vue: Vue
+    _this.registerVueComponent = function (el, vueComponent, id) {
+      var vueInstance = singleSpaVue({
+        Vue: Vue,
+        appOptions: {
+          el: typeof el === 'string' ? "#" + el : el,
+          render: function render(h) {
+            return h('div', {
+              attrs: {
+                id: id
+              }
+            }, [h(vueComponent, {
+              props: __assign({}, _this.props.extraProps)
+            })]);
+          }
+        }
+      });
+      return {
+        bootstrap: vueInstance.bootstrap,
+        mount: vueInstance.mount,
+        unmount: vueInstance.unmount
+      };
+    };
+
+    _this.getOriginCode = function (url, method, data) {
+      if (method === void 0) {
+        method = 'GET';
+      }
+
+      return new Promise(function (res, rej) {
+        var xhr = XMLHttpRequest ? new XMLHttpRequest() : ActiveXObject ? new ActiveXObject('Microsoft.XMLHTTP') : null;
+        if (method === 'GET' && data) data && (url += "?" + data);
+        xhr.open(method, url, true);
+
+        if (method == 'GET') {
+          xhr.send();
+        } else {
+          xhr.setRequestHeader('content-type', 'text/plain');
+          xhr.send(data);
+        }
+
+        xhr.onreadystatechange = function () {
+          if (xhr.readyState === 4) {
+            if (xhr.status === 200) res(xhr.responseText);else rej(xhr);
+          }
         };
-        var rootEleWrapper = _this.rootNodeWrapper.current;
-        if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-        if (_this.visible) rootEleWrapper.appendChild(_this.vueWrapper1);
-        var codeStr = (data || '').replace(_this.publicPathReg, _this.currentPublicPath);
-        var originCodeFn = new Function("self", codeStr);
-        originCodeFn(internalSelf);
-        var currentComponent = internalSelf[_this.currentName];
+      });
+    };
 
-        var lifecycles = _this.registerVueComponent(_this.vueWrapper2, currentComponent, _this.currentName);
+    _this.getOriginVueComponent = function () {
+      return new Promise(function (res) {
+        _this.getOriginCode(_this.currentUrl).then(function (data) {
+          /**
+           * 先尝试直接通过XMLHttpRequest获取源代码
+           */
+          if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+          var internalSelf = {
+            Vue: Vue
+          };
+          var currentName = _this.currentName;
+          var rootEleWrapper = _this.rootNodeWrapper.current;
+          if (!rootEleWrapper) throw Error('没有vue组件的root节点');
+          if (_this.visible) rootEleWrapper.appendChild(_this.vueWrapper1);
+          var codeStr = data.replace(_this.publicPathReg, _this.currentPublicPath);
+          var originCodeFn = new Function("self", codeStr);
+          originCodeFn(internalSelf);
+          _this.component = internalSelf[currentName];
+          res(_this.component);
+        }).catch(function (err) {
+          /**
+           * 如果通过ajax获取不到的话 可能是跨域 通过创建script标签尝试获取
+           */
+          console.warn(_this.currentName + " \u8FD9\u4E2Avue\u7EC4\u4EF6\u53EF\u80FD\u5B58\u5728\u8DE8\u57DF\u6216\u8BF7\u6C42\u9519\u8BEF");
+          var oScript1 = document.createElement('script');
+          oScript1.type = 'text/javascript';
+          var originSelf = window.self;
+          oScript1.innerText = 'window.self = {Vue: null}';
+          document.body.appendChild(oScript1);
+          window.self.Vue = Vue;
+          var oScript2 = document.createElement('script');
+          oScript2.type = 'text/javascript';
+          oScript2.src = _this.currentUrl;
+          document.body.appendChild(oScript2);
 
-        _this.parcel = mountRootParcel(lifecycles, {
-          domElement: '-'
+          oScript2.onload = function () {
+            var _a, _b;
+
+            var currentSelf = window.self;
+            window.self = originSelf;
+            _this.component = currentSelf[_this.currentName];
+            (_a = oScript1.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(oScript1);
+            (_b = oScript2.parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(oScript2);
+            return res(_this.component);
+          };
         });
-      }); // mountRootParcel()
-      // registerApplication(
-      //   this.currentName, 
-      //   (): Promise<LifeCycles<{}>> => {
-      //     return new Promise(resolve => {
-      //       const oScript = document.createElement('script');
-      //       oScript.type = 'text/javascript';
-      //       oScript.innerText = `var self = {Vue: null}`;
-      //       document.body.appendChild(oScript);
-      //       self.Vue = Vue;
-      //       const oScript2 = document.createElement('script');
-      //       oScript2.type = 'text/javascript';
-      //       oScript2.src = this.currentUrl;
-      //       document.body.appendChild(oScript2);
-      //       oScript2.onload = () => {
-      //         const _self: any = self;
-      //         const currentComponent = _self[this.currentName];
-      //         console.log(556677, currentComponent);
-      //       }
-      //       // axios.get(this.currentUrl).then(({ data }) => {
-      //       //   if (!data) throw Error('没有加载到远程vue组件');
-      //       //   /**
-      //       //    * 这里由于自定义了webpack中的self
-      //       //    * 所以需要给这个self里头传递一个Vue对象
-      //       //    */
-      //       //   const internalSelf: any = { Vue };
-      //       //   const rootEleWrapper = this.rootNodeWrapper.current;
-      //       //   if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-      //       //   /**
-      //       //    * 直接在react渲染的节点下渲染vue组件会发生严重错误
-      //       //    * 具体错误原因暂时未知
-      //       //    * 所以需要手动创建一个节点后插入
-      //       //    */
-      //       //   rootEleWrapper.appendChild(this.rootNode);
-      //       //   /**
-      //       //    * 这里用传进来的url的origin替换掉源代码中webpack生成的publicPath
-      //       //    * 否则的话一般vue打包出来的组件的publicPath都是 '/'
-      //       //    * 直接在这里执行的话就会默认指向当前域然后会404
-      //       //    * 所以这里希望组件开发的时候将publicPath设置为一个约定好的key
-      //       //    * 这里用真正的远程路径替换
-      //       //    */
-      //       //   const codeStr = (data || '').replace(this.publicPathReg, this.currentPublicPath);
-      //       //   const originCodeFn = new Function("self", codeStr);
-      //       //   originCodeFn(internalSelf);
-      //       //   const currentComponent = internalSelf[this.currentName];
-      //       //   const lifecycles = this.registerVueComponent(this.currentName, currentComponent);
-      //       //   resolve(lifecycles);
-      //       // })
-      //     })
-      //   },
-      //   this.getBoolean,
-      // );
-      // if (this.props.activation) this.mount();
+      });
     };
 
     _this.render = function () {
@@ -219,9 +297,9 @@ function (_super) {
 
     _this.currentName = String(name || +new Date()); // 获取传进来的url的协议+域名+端口
 
-    _this.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this.currentUrl) || [''])[0] + "/"; // 设置一个内部的挂载节点
+    _this.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
 
-    _this.vueWrapper2.id = _this.currentName;
+    _this.vueWrapper2.id = _this.currentName; // 节点1是为了可以让vue随时visibility 同时使vue的根节点脱离react的fiber树
 
     _this.vueWrapper1.appendChild(_this.vueWrapper2);
 

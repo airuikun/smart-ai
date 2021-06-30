@@ -1,8 +1,7 @@
 import React from 'react';
 import Vue from 'vue';
-import { mountRootParcel, LifeCycles, ParcelConfig } from 'single-spa';
+import { mountRootParcel, ParcelConfig } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
-import axios from 'axios';
 
 const __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 Vue.prototype._init = function(options: any) {
@@ -27,11 +26,11 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
   private currentPublicPath: string; // 传进来的url的协议+域名+端口
   private publicPathKey: string; // 远程源代码中要被替换的关键字
   private publicPathReg: RegExp; // 用来替换源代码中关键字的正则
-  // private rootNode: HTMLDivElement = document.createElement('div'); // vue组件挂载的root
   private rootNodeWrapper = React.createRef<HTMLDivElement>(); // vue挂载节点是根据el再往上找它的爹
-  private parcel: any;
-  private vueWrapper1: HTMLDivElement = document.createElement('div');
-  private vueWrapper2: HTMLDivElement = document.createElement('div');
+  private component: any; // vue 组件实例
+  private parcel: any; // parcel实例
+  private vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
+  private vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
 
   constructor(props: IProps) {
     super(props);
@@ -50,26 +49,17 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
     this.currentPublicPath = `${(
       new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(this.currentUrl) || ['']
     )[0]}/`;
-    // 设置一个内部的挂载节点
+    // vue会挂载到这个节点2上
     this.vueWrapper2.id = this.currentName;
+    // 节点1是为了可以让vue随时visibility 同时使vue的根节点脱离react的fiber树
     this.vueWrapper1.appendChild(this.vueWrapper2);
   }
 
-  private registerVueComponent = (el: string | HTMLElement, vueComponent: Object, id: string) => {
-    const vueInstance = singleSpaVue({
-      Vue,
-      appOptions: {
-        el: typeof el === 'string' ? `#${el}` : el,
-        render: (h: any) => h('div', { attrs: { id } }, [h(vueComponent, {
-          props: { ...this.props.extraProps }
-        })]),
-      },
-    });
-    return ({
-      bootstrap: vueInstance.bootstrap,
-      mount: vueInstance.mount,
-      unmount: vueInstance.unmount,
-    })
+  componentDidMount = async () => {
+    const component = await this.getOriginVueComponent();
+    if (component && typeof component !== 'object') return;
+    const lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
+    this.parcel = mountRootParcel((lifecycles as ParcelConfig), { domElement: '-' });
   }
 
   componentDidUpdate = () => {
@@ -96,74 +86,87 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
     this.rootNodeWrapper.current?.removeChild(this.vueWrapper1);
     this.parcel.unmount();
   }
-  
-  componentDidMount = () => {
-    axios.get(this.currentUrl).then(({ data }) => {
-      if (!data) throw Error('没有加载到远程vue组件');
-      const internalSelf: any = { Vue };
-      const rootEleWrapper = this.rootNodeWrapper.current;
-      if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-      if (this.visible) rootEleWrapper.appendChild(this.vueWrapper1);
-      const codeStr = (data || '').replace(this.publicPathReg, this.currentPublicPath);
-      const originCodeFn = new Function("self", codeStr);
-      originCodeFn(internalSelf);
-      const currentComponent = internalSelf[this.currentName];
-      const lifecycles = this.registerVueComponent(this.vueWrapper2, currentComponent, this.currentName);
-      this.parcel = mountRootParcel((lifecycles as ParcelConfig), { domElement: '-' });
+
+  private registerVueComponent = (el: string | HTMLElement, vueComponent: object, id: string) => {
+    const vueInstance = singleSpaVue({
+      Vue,
+      appOptions: {
+        el: typeof el === 'string' ? `#${el}` : el,
+        render: (h: any) => h('div', { attrs: { id } }, [h(vueComponent, {
+          props: { ...this.props.extraProps }
+        })]),
+      },
+    });
+    return ({
+      bootstrap: vueInstance.bootstrap,
+      mount: vueInstance.mount,
+      unmount: vueInstance.unmount,
     })
-    // mountRootParcel()
-    // registerApplication(
-    //   this.currentName, 
-    //   (): Promise<LifeCycles<{}>> => {
-    //     return new Promise(resolve => {
-    //       const oScript = document.createElement('script');
-    //       oScript.type = 'text/javascript';
-    //       oScript.innerText = `var self = {Vue: null}`;
-    //       document.body.appendChild(oScript);
-    //       self.Vue = Vue;
-    //       const oScript2 = document.createElement('script');
-    //       oScript2.type = 'text/javascript';
-    //       oScript2.src = this.currentUrl;
-    //       document.body.appendChild(oScript2);
-    //       oScript2.onload = () => {
-    //         const _self: any = self;
-    //         const currentComponent = _self[this.currentName];
-    //         console.log(556677, currentComponent);
-    //       }
-    //       // axios.get(this.currentUrl).then(({ data }) => {
-    //       //   if (!data) throw Error('没有加载到远程vue组件');
-    //       //   /**
-    //       //    * 这里由于自定义了webpack中的self
-    //       //    * 所以需要给这个self里头传递一个Vue对象
-    //       //    */
-    //       //   const internalSelf: any = { Vue };
-    //       //   const rootEleWrapper = this.rootNodeWrapper.current;
-    //       //   if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-    //       //   /**
-    //       //    * 直接在react渲染的节点下渲染vue组件会发生严重错误
-    //       //    * 具体错误原因暂时未知
-    //       //    * 所以需要手动创建一个节点后插入
-    //       //    */
-    //       //   rootEleWrapper.appendChild(this.rootNode);
-    //       //   /**
-    //       //    * 这里用传进来的url的origin替换掉源代码中webpack生成的publicPath
-    //       //    * 否则的话一般vue打包出来的组件的publicPath都是 '/'
-    //       //    * 直接在这里执行的话就会默认指向当前域然后会404
-    //       //    * 所以这里希望组件开发的时候将publicPath设置为一个约定好的key
-    //       //    * 这里用真正的远程路径替换
-    //       //    */
-    //       //   const codeStr = (data || '').replace(this.publicPathReg, this.currentPublicPath);
-    //       //   const originCodeFn = new Function("self", codeStr);
-    //       //   originCodeFn(internalSelf);
-    //       //   const currentComponent = internalSelf[this.currentName];
-    //       //   const lifecycles = this.registerVueComponent(this.currentName, currentComponent);
-    //       //   resolve(lifecycles);
-    //       // })
-    //     })
-    //   },
-    //   this.getBoolean,
-    // );
-    // if (this.props.activation) this.mount();
+  }
+
+  private getOriginCode = (url: string, method: string = 'GET', data?: any): Promise<any> => {
+    return new Promise((res, rej) => {
+      const xhr: XMLHttpRequest = XMLHttpRequest ? new XMLHttpRequest() :
+        ActiveXObject ? new ActiveXObject('Microsoft.XMLHTTP') : null;
+      if (method === 'GET' && data) data && (url += `?${data}`);
+      xhr.open(method, url, true);
+      if (method == 'GET') {
+        xhr.send();
+      } else {
+        xhr.setRequestHeader('content-type', 'text/plain');
+        xhr.send((data as (Document | BodyInit | null)));
+      }
+      xhr.onreadystatechange = () => {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) res(xhr.responseText);
+          else rej(xhr);
+        }      
+      }
+    });
+  }
+
+  private getOriginVueComponent = (): object => {
+    return new Promise(res => {
+      this.getOriginCode(this.currentUrl).then(data => {
+        /**
+         * 先尝试直接通过XMLHttpRequest获取源代码
+         */
+        if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+        const internalSelf: any = { Vue };
+        const currentName = this.currentName;
+        const rootEleWrapper = this.rootNodeWrapper.current;
+        if (!rootEleWrapper) throw Error('没有vue组件的root节点');
+        if (this.visible) rootEleWrapper.appendChild(this.vueWrapper1);
+        const codeStr = data.replace(this.publicPathReg, this.currentPublicPath);
+        const originCodeFn = new Function("self", codeStr);
+        originCodeFn(internalSelf);
+        this.component = internalSelf[currentName];
+        res(this.component);
+      }).catch(err => {
+        /**
+         * 如果通过ajax获取不到的话 可能是跨域 通过创建script标签尝试获取
+         */
+        console.warn(`${this.currentName} 这个vue组件可能存在跨域或请求错误`);
+        const oScript1 = document.createElement('script');
+        oScript1.type = 'text/javascript';
+        const originSelf = window.self;
+        oScript1.innerText = 'window.self = {Vue: null}';
+        document.body.appendChild(oScript1);
+        window.self.Vue = Vue;
+        const oScript2 = document.createElement('script');
+        oScript2.type = 'text/javascript';
+        oScript2.src = this.currentUrl;
+        document.body.appendChild(oScript2);
+        oScript2.onload = () =>{
+          const currentSelf: any = window.self;
+          (window as any).self = originSelf;
+          this.component = currentSelf[this.currentName];
+          oScript1.parentNode?.removeChild(oScript1);
+          oScript2.parentNode?.removeChild(oScript2);
+          return res(this.component);
+        };
+      });
+    })    
   }
 
   render = () => (<div ref={this.rootNodeWrapper} />)

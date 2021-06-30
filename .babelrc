@@ -8,5 +8,9 @@
     }],
     "@babel/preset-react"
   ],
-  "plugins": ["@babel/plugin-syntax-dynamic-import", "@babel/plugin-proposal-optional-chaining"]
+  "plugins": [
+    "@babel/plugin-external-helpers",
+    "@babel/plugin-syntax-dynamic-import",
+    "@babel/plugin-proposal-optional-chaining"
+  ]
 }
