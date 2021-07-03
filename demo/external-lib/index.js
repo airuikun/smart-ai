@@ -100,7 +100,7 @@ var __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 
 Vue.prototype._init = function (options) {
   /**
-   * TODO: 留个口儿 用来以后支持加载整个Vue应用(目前只支持加载组件)
+   * TODO: 留个口儿 用来以后支持加载整个Vue应用
    */
   __VUE_INTERNAL_INIT__.call(this, options);
 };
@@ -121,10 +121,12 @@ function (_super) {
 
     _this.componentDidMount = function () {
       return __awaiter(_this, void 0, void 0, function () {
-        var component, lifecycles;
+        var rootEleWrapper, component, lifecycles;
         return __generator(this, function (_a) {
           switch (_a.label) {
             case 0:
+              rootEleWrapper = this.rootNodeWrapper.current;
+              if (!rootEleWrapper) throw Error('没有vue组件的root节点');
               return [4
               /*yield*/
               , this.getOriginVueComponent()];
@@ -138,6 +140,7 @@ function (_super) {
               this.parcel = mountRootParcel(lifecycles, {
                 domElement: '-'
               });
+              if (this.visible) rootEleWrapper.appendChild(this.vueWrapper1);
               return [2
               /*return*/
               ];
@@ -170,11 +173,10 @@ function (_super) {
 
 
     _this.componentWillUnmount = function () {
-      var _a;
+      _this.rootNodeWrapper.current.removeChild(_this.vueWrapper1);
 
       _this.vueWrapper1 = null;
       _this.vueWrapper2 = null;
-      (_a = _this.rootNodeWrapper.current) === null || _a === void 0 ? void 0 : _a.removeChild(_this.vueWrapper1);
 
       _this.parcel.unmount();
     };
@@ -227,6 +229,40 @@ function (_super) {
       });
     };
 
+    _this.getCurrentName = function (self) {
+      for (var props in self) {
+        if (!self.hasOwnProperty(props)) break;
+        if (props !== 'Vue') return props;
+      }
+
+      return '';
+    };
+
+    _this.executeOriginCode = function (code) {
+      var internalSelf = {
+        Vue: Vue
+      };
+      var reg = _this.publicPathReg;
+      var publicPath = _this.currentPublicPath;
+
+      if (reg.test(code)) {
+        var codeStr = code.replace(reg, publicPath);
+        var originCodeFn = new Function("self", codeStr);
+        originCodeFn(internalSelf);
+      } else {
+        var temporaryDocument = window.document;
+        var originCurrentScript = window.document.currentScript;
+        var temporaryScript = document.createElement('script');
+        temporaryScript.src = publicPath;
+        temporaryDocument.currentScript = temporaryScript;
+        var originCodeFn = new Function("self", code);
+        originCodeFn(internalSelf);
+        temporaryDocument.currentScript = originCurrentScript;
+        temporaryScript.remove && temporaryScript.remove();
+      }
+      return internalSelf;
+    };
+
     _this.getOriginVueComponent = function () {
       return new Promise(function (res) {
         _this.getOriginCode(_this.currentUrl).then(function (data) {
@@ -234,23 +270,18 @@ function (_super) {
            * 先尝试直接通过XMLHttpRequest获取源代码
            */
           if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
-          var internalSelf = {
-            Vue: Vue
-          };
-          var currentName = _this.currentName;
-          var rootEleWrapper = _this.rootNodeWrapper.current;
-          if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-          if (_this.visible) rootEleWrapper.appendChild(_this.vueWrapper1);
-          var codeStr = data.replace(_this.publicPathReg, _this.currentPublicPath);
-          var originCodeFn = new Function("self", codeStr);
-          originCodeFn(internalSelf);
-          _this.component = internalSelf[currentName];
+
+          var internalSelf = _this.executeOriginCode(data);
+
+          if (!_this.currentName) _this.currentName = _this.getCurrentName(internalSelf);
+          if (!_this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+          _this.vueWrapper2.id = _this.currentName;
+          _this.component = internalSelf[_this.currentName];
           res(_this.component);
         }).catch(function (err) {
           /**
            * 如果通过ajax获取不到的话 可能是跨域 通过创建script标签尝试获取
            */
-          console.warn(_this.currentName + " \u8FD9\u4E2Avue\u7EC4\u4EF6\u53EF\u80FD\u5B58\u5728\u8DE8\u57DF\u6216\u8BF7\u6C42\u9519\u8BEF");
           var oScript1 = document.createElement('script');
           oScript1.type = 'text/javascript';
           var originSelf = window.self;
@@ -267,35 +298,43 @@ function (_super) {
 
             var currentSelf = window.self;
             window.self = originSelf;
+            if (!_this.currentName) _this.currentName = _this.getCurrentName(currentSelf);
+            if (!_this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+            _this.vueWrapper2.id = _this.currentName;
             _this.component = currentSelf[_this.currentName];
             (_a = oScript1.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(oScript1);
             (_b = oScript2.parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(oScript2);
             return res(_this.component);
           };
+
+          console.warn(_this.currentName + " \u8FD9\u4E2Avue\u7EC4\u4EF6\u53EF\u80FD\u5B58\u5728\u8DE8\u57DF\u6216\u7F51\u7EDC\u8BF7\u6C42\u9519\u8BEF");
         });
       });
     };
 
     _this.render = function () {
       return React.createElement("div", {
+        id: _this.props.id || '',
         ref: _this.rootNodeWrapper
       });
     };
 
-    var url = props.url,
+    var loadType = props.loadType,
+        url = props.url,
         name = props.name,
         visible = props.visible,
-        publicPathWillBeReplacedKeyWord = props.publicPathWillBeReplacedKeyWord; // 初始化时候是否显示
+        instable_publicPathBeReplacedKey = props.instable_publicPathBeReplacedKey;
+    _this.loadType = loadType || 'script'; // 初始化时候是否显示
 
     _this.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传来的url
 
     _this.currentUrl = url; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
 
-    _this.publicPathKey = publicPathWillBeReplacedKeyWord || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
+    _this.publicPathKey = instable_publicPathBeReplacedKey || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
 
     _this.publicPathReg = new RegExp(_this.publicPathKey, 'g'); // 生成每个iframe的唯一表示
 
-    _this.currentName = String(name || +new Date()); // 获取传进来的url的协议+域名+端口
+    _this.currentName = name || ''; // 获取传进来的url的协议+域名+端口
 
     _this.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
 
