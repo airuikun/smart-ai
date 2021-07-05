@@ -149,49 +149,56 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
     const internalSelf: Self = { Vue };
     const reg = this.publicPathReg;
     const publicPath = this.currentPublicPath;
+    const url = this.currentUrl;
     if (reg.test(code)) {
+      /**
+       * 自己开发组件的时候使用可以配置publicPath
+       * 为了让react-vue-mirco-frame支持加载静态资源
+       * 可以给publicPath设置为一个约定好的值
+       * 然后这里用传进来的origin替换掉这个约定好的值
+       * 这个约定好的值默认是 __WILL_BE_REPLACED_PUBLIC_PATH__
+       */
       const codeStr = code.replace(reg, publicPath);
       const originCodeFn = new Function("self", codeStr);
       originCodeFn(internalSelf);
     } else {
+      /**
+       * 如果没有配置这个值的话 就以hack的方式注入origin
+       * webpack打包出来的umd代码里面会动态监测document.currentScript
+       * 通过临时给这个currentScript换掉的方式让webpack将origin注入进代码
+       */
       const temporaryDocument = (window.document as any);
       const originCurrentScript = window.document.currentScript;
       const temporaryScript = document.createElement('script');
-      temporaryScript.src = publicPath;
-      temporaryDocument.currentScript = temporaryScript;
+      const defineProperty = Object.defineProperty;
+      temporaryScript.src = url;
+      defineProperty(temporaryDocument, 'currentScript', {
+        value: temporaryScript,
+        writable: true,
+      });
       const originCodeFn = new Function("self", code);
       originCodeFn(internalSelf);
-      temporaryDocument.currentScript = originCurrentScript;
+      defineProperty(temporaryDocument, 'currentScript', {
+        value: originCurrentScript,
+        writable: false,
+      });
       temporaryScript.remove && temporaryScript.remove();
     };
     return internalSelf;
   } 
 
   private getOriginVueComponent = (): object => {
-    return new Promise(res => {
-      this.getOriginCode(this.currentUrl).then(data => {
-        /**
-         * 先尝试直接通过XMLHttpRequest获取源代码
-         */
-        if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
-        const internalSelf = this.executeOriginCode(data);
-        if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
-        if (!this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
-        this.vueWrapper2.id = this.currentName;
-        this.component = internalSelf[this.currentName];
-        res(this.component);
-      }).catch(err => {
-        /**
-         * 如果通过ajax获取不到的话 可能是跨域 通过创建script标签尝试获取
-         */
+    if (this.loadType === 'script') {
+      return new Promise(res => {
+        const type = 'text/javascript';
         const oScript1 = document.createElement('script');
-        oScript1.type = 'text/javascript';
+        oScript1.type = type;
         const originSelf = window.self;
         oScript1.innerText = 'window.self = {Vue: null}';
         document.body.appendChild(oScript1);
         window.self.Vue = Vue;
         const oScript2 = document.createElement('script');
-        oScript2.type = 'text/javascript';
+        oScript2.type = type;
         oScript2.src = this.currentUrl;
         document.body.appendChild(oScript2);
         oScript2.onload = () =>{
@@ -203,11 +210,35 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
           this.component = currentSelf[this.currentName];
           oScript1.parentNode?.removeChild(oScript1);
           oScript2.parentNode?.removeChild(oScript2);
-          return res(this.component);
+          res(this.component);
         };
-        console.warn(`${this.currentName} 这个vue组件可能存在跨域或网络请求错误`);
       });
-    })    
+    } else {
+      return new Promise(res => {
+        this.getOriginCode(this.currentUrl).then(data => {
+          /**
+           * 通过XMLHttpRequest获取源代码
+           */
+          if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+          const internalSelf = this.executeOriginCode(data);
+          if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
+          if (!this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+          this.vueWrapper2.id = this.currentName;
+          this.component = internalSelf[this.currentName];
+          res(this.component);
+        }).catch(err => {
+          /**
+           * 如果进入到这里说明可能请求出错了
+           */
+          console.warn('远程vue组件请求可能出现跨域或其他网络问题');
+          /**
+           * 如果出现跨域问题就强制使用script方式加载一遍
+           */
+          this.loadType = 'script';
+          res(this.getOriginVueComponent());
+        })
+      })
+    } 
   }
 
   render = () => (<div id={this.props.id || ''} ref={this.rootNodeWrapper} />)

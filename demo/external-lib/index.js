@@ -244,52 +244,57 @@ function (_super) {
       };
       var reg = _this.publicPathReg;
       var publicPath = _this.currentPublicPath;
+      var url = _this.currentUrl;
 
       if (reg.test(code)) {
+        /**
+         * 自己开发组件的时候使用可以配置publicPath
+         * 为了让react-vue-mirco-frame支持加载静态资源
+         * 可以给publicPath设置为一个约定好的值
+         * 然后这里用传进来的origin替换掉这个约定好的值
+         * 这个约定好的值默认是 __WILL_BE_REPLACED_PUBLIC_PATH__
+         */
         var codeStr = code.replace(reg, publicPath);
         var originCodeFn = new Function("self", codeStr);
         originCodeFn(internalSelf);
       } else {
+        /**
+         * 如果没有配置这个值的话 就以hack的方式注入origin
+         * webpack打包出来的umd代码里面会动态监测document.currentScript
+         * 通过临时给这个currentScript换掉的方式让webpack将origin注入进代码
+         */
         var temporaryDocument = window.document;
         var originCurrentScript = window.document.currentScript;
         var temporaryScript = document.createElement('script');
-        temporaryScript.src = publicPath;
-        temporaryDocument.currentScript = temporaryScript;
+        var defineProperty = Object.defineProperty;
+        temporaryScript.src = url;
+        defineProperty(temporaryDocument, 'currentScript', {
+          value: temporaryScript,
+          writable: true
+        });
         var originCodeFn = new Function("self", code);
         originCodeFn(internalSelf);
-        temporaryDocument.currentScript = originCurrentScript;
+        defineProperty(temporaryDocument, 'currentScript', {
+          value: originCurrentScript,
+          writable: false
+        });
         temporaryScript.remove && temporaryScript.remove();
       }
       return internalSelf;
     };
 
     _this.getOriginVueComponent = function () {
-      return new Promise(function (res) {
-        _this.getOriginCode(_this.currentUrl).then(function (data) {
-          /**
-           * 先尝试直接通过XMLHttpRequest获取源代码
-           */
-          if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
-
-          var internalSelf = _this.executeOriginCode(data);
-
-          if (!_this.currentName) _this.currentName = _this.getCurrentName(internalSelf);
-          if (!_this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
-          _this.vueWrapper2.id = _this.currentName;
-          _this.component = internalSelf[_this.currentName];
-          res(_this.component);
-        }).catch(function (err) {
-          /**
-           * 如果通过ajax获取不到的话 可能是跨域 通过创建script标签尝试获取
-           */
+      if (_this.loadType === 'script') {
+        return new Promise(function (res) {
+          var type = 'text/javascript';
           var oScript1 = document.createElement('script');
-          oScript1.type = 'text/javascript';
+          oScript1.type = type;
           var originSelf = window.self;
           oScript1.innerText = 'window.self = {Vue: null}';
           document.body.appendChild(oScript1);
           window.self.Vue = Vue;
           var oScript2 = document.createElement('script');
-          oScript2.type = 'text/javascript';
+          oScript2.type = type;
           oScript2.src = _this.currentUrl;
           document.body.appendChild(oScript2);
 
@@ -304,12 +309,38 @@ function (_super) {
             _this.component = currentSelf[_this.currentName];
             (_a = oScript1.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(oScript1);
             (_b = oScript2.parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(oScript2);
-            return res(_this.component);
+            res(_this.component);
           };
-
-          console.warn(_this.currentName + " \u8FD9\u4E2Avue\u7EC4\u4EF6\u53EF\u80FD\u5B58\u5728\u8DE8\u57DF\u6216\u7F51\u7EDC\u8BF7\u6C42\u9519\u8BEF");
         });
-      });
+      } else {
+        return new Promise(function (res) {
+          _this.getOriginCode(_this.currentUrl).then(function (data) {
+            /**
+             * 通过XMLHttpRequest获取源代码
+             */
+            if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+
+            var internalSelf = _this.executeOriginCode(data);
+
+            if (!_this.currentName) _this.currentName = _this.getCurrentName(internalSelf);
+            if (!_this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+            _this.vueWrapper2.id = _this.currentName;
+            _this.component = internalSelf[_this.currentName];
+            res(_this.component);
+          }).catch(function (err) {
+            /**
+             * 如果进入到这里说明可能请求出错了
+             */
+            console.warn('远程vue组件请求可能出现跨域或其他网络问题');
+            /**
+             * 如果出现跨域问题就强制使用script方式加载一遍
+             */
+
+            _this.loadType = 'script';
+            res(_this.getOriginVueComponent());
+          });
+        });
+      }
     };
 
     _this.render = function () {
