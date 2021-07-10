@@ -16,8 +16,7 @@ interface Self {
   [ propName: string ]: any;
 }
 
-interface IProps {
-  url: string;
+interface IProps0 {
   name?: string;
   id?: string;
   visible?: boolean;
@@ -25,6 +24,18 @@ interface IProps {
   loadType?: 'xhr' | 'script';
   instable_publicPathBeReplacedKey?: string;
 }
+
+interface IProps1 extends IProps0 {
+  url: string;
+  component?: object;
+}
+
+interface IProps2 extends IProps0 {
+  component: object;
+  url?: string; 
+}
+
+type IProps = IProps1 | IProps2;
 
 export default class VueIframe extends React.PureComponent<IProps, any> {
   private loadType: IProps['loadType'];
@@ -42,12 +53,14 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
 
   constructor(props: IProps) {
     super(props);
-    const { loadType, url, name, visible, instable_publicPathBeReplacedKey } = props;
+    const { loadType, url, component, name, visible, instable_publicPathBeReplacedKey } = props;
     this.loadType = loadType || 'script';
     // 初始化时候是否显示
     this.visible = typeof visible === 'boolean' ? visible : true;
+    // 获取到外部传进来的vue组件
+    this.component = component;
     // 获取到外部传来的url
-    this.currentUrl = url;
+    this.currentUrl = url || '';
     // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
     this.publicPathKey = instable_publicPathBeReplacedKey || '__WILL_BE_REPLACED_PUBLIC_PATH__';
     // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
@@ -65,13 +78,30 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
   }
 
   componentDidMount = async () => {
+    if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
     const rootEleWrapper = this.rootNodeWrapper.current;
     if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-    const component = await this.getOriginVueComponent();
-    if (component && typeof component !== 'object') return;
+    const component = this.props.component || await this.getOriginVueComponent();
+    if (!this.isVueComponent(component)) return;
     const lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
     this.parcel = mountRootParcel((lifecycles as ParcelConfig), { domElement: '-' });
-    if (this.visible) rootEleWrapper.appendChild(this.vueWrapper1);
+    if (!this.visible) this.vueWrapper1.style.display = 'none';
+    rootEleWrapper.appendChild(this.vueWrapper1);
+    setTimeout(() => {
+      /**
+       * 对于一上来visible就是不可见的组件
+       * 先把display置为none 然后再添加进页面
+       * 这是为了防止vue组件中可能会有类似echarts
+       * 之类的工具会通过document.querySelector等
+       * 方法选择dom
+       * 如果直接就不把vue组件添加进页面的话
+       * vue组件内部那些选择dom的方法可能会产生问题
+       */
+      if (!this.visible) {
+        this.vueWrapper1 = rootEleWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
+      }
+      this.vueWrapper1.style.display = 'block';
+    })
   }
 
   componentDidUpdate = () => {
@@ -105,7 +135,7 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
       appOptions: {
         el: typeof el === 'string' ? `#${el}` : el,
         render: (h: any) => h('div', { attrs: { id } }, [h(vueComponent, {
-          props: { ...this.props.extraProps }
+          props: { ...this.props.extraProps },
         })]),
       },
     });
@@ -114,6 +144,10 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
       mount: vueInstance.mount,
       unmount: vueInstance.unmount,
     })
+  }
+
+  private isVueComponent = (component: any): boolean => {
+    return component && typeof component === 'object' && typeof component.render === 'function';
   }
 
   private getOriginCode = (url: string, method: string = 'GET', data?: any): Promise<any> => {

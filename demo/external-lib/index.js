@@ -121,26 +121,58 @@ function (_super) {
 
     _this.componentDidMount = function () {
       return __awaiter(_this, void 0, void 0, function () {
-        var rootEleWrapper, component, lifecycles;
-        return __generator(this, function (_a) {
-          switch (_a.label) {
+        var rootEleWrapper, component, _a, lifecycles;
+
+        var _this = this;
+
+        return __generator(this, function (_b) {
+          switch (_b.label) {
             case 0:
+              if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
               rootEleWrapper = this.rootNodeWrapper.current;
               if (!rootEleWrapper) throw Error('没有vue组件的root节点');
+              _a = this.props.component;
+              if (_a) return [3
+              /*break*/
+              , 2];
               return [4
               /*yield*/
               , this.getOriginVueComponent()];
 
             case 1:
-              component = _a.sent();
-              if (component && _typeof(component) !== 'object') return [2
+              _a = _b.sent();
+              _b.label = 2;
+
+            case 2:
+              component = _a;
+              if (!this.isVueComponent(component)) return [2
               /*return*/
               ];
               lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
               this.parcel = mountRootParcel(lifecycles, {
                 domElement: '-'
               });
-              if (this.visible) rootEleWrapper.appendChild(this.vueWrapper1);
+              if (!this.visible) this.vueWrapper1.style.display = 'none';
+              rootEleWrapper.appendChild(this.vueWrapper1);
+              setTimeout(function () {
+                var _a;
+                /**
+                 * 对于一上来visible就是不可见的组件
+                 * 先把display置为none 然后再添加进页面
+                 * 这是为了防止vue组件中可能会有类似echarts
+                 * 之类的工具会通过document.querySelector等
+                 * 方法选择dom
+                 * 如果直接就不把vue组件添加进页面的话
+                 * vue组件内部那些选择dom的方法可能会产生问题
+                 */
+
+
+                if (!_this.visible) {
+                  _this.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this.vueWrapper1);
+                }
+
+                _this.vueWrapper1.style.display = 'block';
+              });
               return [2
               /*return*/
               ];
@@ -202,6 +234,10 @@ function (_super) {
         mount: vueInstance.mount,
         unmount: vueInstance.unmount
       };
+    };
+
+    _this.isVueComponent = function (component) {
+      return component && _typeof(component) === 'object' && typeof component.render === 'function';
     };
 
     _this.getOriginCode = function (url, method, data) {
@@ -352,14 +388,17 @@ function (_super) {
 
     var loadType = props.loadType,
         url = props.url,
+        component = props.component,
         name = props.name,
         visible = props.visible,
         instable_publicPathBeReplacedKey = props.instable_publicPathBeReplacedKey;
     _this.loadType = loadType || 'script'; // 初始化时候是否显示
 
-    _this.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传来的url
+    _this.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
 
-    _this.currentUrl = url; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
+    _this.component = component; // 获取到外部传来的url
+
+    _this.currentUrl = url || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
 
     _this.publicPathKey = instable_publicPathBeReplacedKey || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
 

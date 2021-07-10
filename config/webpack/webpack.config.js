@@ -1,8 +1,8 @@
 const path = require('path');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
-const VueLoaderPlugin = require('vue-loader/lib/plugin');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const { CheckerPlugin } = require('awesome-typescript-loader');
+const VueLoaderPlugin = require('vue-loader/lib/plugin');
 
 const originPath = process.cwd();
 const demoPath = `${originPath}/demo`;
@@ -29,6 +29,7 @@ module.exports = {
       {
         test: /\.(js|jsx|ts|tsx)$/,
         include: `${demoPath}/src`,
+        exclude: /\.vue$/,
         use: {
           loader: 'babel-loader',
           options: {
@@ -45,19 +46,38 @@ module.exports = {
           }
         },
       },
+      // {
+      //   test: /\.vue$/,
+      //   include: `${demoPath}/src`,
+      //   use: {
+      //     loader: 'babel-loader',
+      //     options: {
+      //       presets: [
+      //         ["@babel/preset-env", {
+      //           "modules": false,
+      //           "targets": {
+      //             "browsers": [ "ie >= 11", "last 2 versions" ]
+      //           }
+      //         }],
+      //       ],
+      //       plugins: [path.join(originPath, 'node_modules', '@babel/plugin-syntax-dynamic-import')],
+      //     }
+      //   },
+      // },
+      {
+        test: /\.vue$/,
+        loader: 'vue-loader',
+        // include: path.join(originPath, 'demo', 'src')
+      },
       {
         test: /\.tsx?$/,
         use: 'awesome-typescript-loader',
         exclude: /node_modules/
       },
-      {
-        test: /\.vue$/,
-        loader: 'vue-loader'
-      }
     ],
   },
   resolve: {
-    extensions: ['.js', '.jsx', '.ts', '.tsx', 'vue'],
+    extensions: ['.js', '.jsx', '.ts', '.tsx', '.vue'],
     alias: {
       'external-lib': path.join(demoPath, 'external-lib'),
     },
