@@ -10,7 +10,7 @@ const TabPane = Tabs.TabPane;
 
 const Test: React.FC<{}> = () => {
   const [ number1, setNumber1 ] = useState<number>(1);
-  const [ active2, setActive2 ] = useState<boolean>(false);
+  const [ active2, setActive2 ] = useState<boolean>(true);
   const [ active3, setActive3 ] = useState<boolean>(true);
   const [ active4, setActive4 ] = useState<boolean>(false);
   const handleClick1 = () => setNumber1(number1 + 1);
@@ -33,7 +33,7 @@ const Test: React.FC<{}> = () => {
           </TabPane>
           <Tabs.TabPane tab={'查看日志'} key="2" >
             <div className="log-dialog">
-              <VueIFrame url="http://127.0.0.1:8877/vueComponent1.umd.js" visible={active3} />
+              <VueIFrame loadType="xhr" url="http://127.0.0.1:8877/vueComponent1.umd.js" visible={active3} />
             </div>
           </Tabs.TabPane>
         </Tabs>

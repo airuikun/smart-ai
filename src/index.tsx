@@ -37,9 +37,15 @@ interface IProps2 extends IProps0 {
 
 type IProps = IProps1 | IProps2;
 
+interface ISelecotr {
+  'getElementById': NonElementParentNode;
+  'querySelector': ParentNode;
+  'querySelectorAll': ParentNode;
+}
+
 export default class VueIframe extends React.PureComponent<IProps, any> {
-  private loadType: IProps['loadType'];
-  private currentName: string; // 每个iframe的唯一标识
+  private loadType: IProps['loadType']; // 加载方式 支持ajax和script标签
+  private currentName: string; // 每个iframe的name
   private visible: boolean; // 是否显示
   private currentUrl: string; // 传进来的url
   private currentPublicPath: string; // 传进来的url的协议+域名+端口
@@ -50,6 +56,7 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
   private parcel: any; // parcel实例
   private vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
   private vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
+  private styleElements: HTMLLinkElement[] | HTMLStyleElement[] = [];
 
   constructor(props: IProps) {
     super(props);
@@ -74,7 +81,54 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
     // vue会挂载到这个节点2上
     this.vueWrapper2.id = this.currentName;
     // 节点1是为了可以让vue随时visibility 同时使vue的根节点脱离react的fiber树
-    this.vueWrapper1.appendChild(this.vueWrapper2);
+    // this.vueWrapper1.appendChild(this.vueWrapper2);
+    // 临时保存appendChild
+    this.initHack();
+    // const originAppendChild = HTMLHeadElement.prototype.appendChild;
+    // const originSelector = HTMLDocument.prototype;
+    // const selectorMap = {
+    //   'getElementById': this.internalHackSelector('getElementById', originSelector['getElementById']),
+    //   'querySelector': this.internalHackSelector('querySelector', originSelector['querySelector']),
+    //   'querySelectorAll': this.internalHackSelector('querySelectorAll', originSelector['querySelectorAll']),
+    // };
+    // (this.internalHackCSSsandbox as Function) =
+    //   this.internalHackCSSsandbox.bind(this, originAppendChild);
+    // (this.internalHackJSSelector as Function) =
+    //   this.internalHackJSSelector.bind(this, originSelector, selectorList);
+    // selectorList.forEach(selectorName => {
+      
+    // });
+    // (elementId: string): HTMLElement | null
+    // const originGetElementById = originSelector['getElementById'];
+    // const _this = this;
+    // HTMLDocument.prototype.getElementById = function (id: string): HTMLElement | null {
+    //   console.log('88888 进来了了饿了来了')
+    //   const el = originGetElementById.call(this, id) ||
+    //     (_this.vueWrapper1.shadowRoot?.getElementById(id) as HTMLElement | null);
+    //   return el;
+    // }
+  }
+
+  private initHack = () => {
+    const originAppendChild = HTMLHeadElement.prototype.appendChild;
+    const s = HTMLDocument.prototype;
+    const selectorMap = {
+      'getElementById': this.initHackSelector('getElementById', s['getElementById']),
+      'querySelector': this.initHackSelector('querySelector', s['querySelector']),
+      'querySelectorAll': this.initHackSelector('querySelectorAll', s['querySelectorAll']),
+    };
+    (this.internalHackCSSsandbox as Function) =
+      this.internalHackCSSsandbox.bind(this, originAppendChild);
+    (this.internalHackSelector as Function) =
+      this.internalHackSelector.bind(this, selectorMap);
+  }
+
+  private internalHackSelector = (
+    selectorMap: { [name: string]: Function },
+    name: keyof ISelecotr,
+    codeIsExecuting: boolean,
+  ) => {
+    selectorMap[name](codeIsExecuting);
   }
 
   componentDidMount = async () => {
@@ -86,6 +140,19 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
     const lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
     this.parcel = mountRootParcel((lifecycles as ParcelConfig), { domElement: '-' });
     if (!this.visible) this.vueWrapper1.style.display = 'none';
+    const supportShadowDOM = !!rootEleWrapper.attachShadow;
+
+    this.vueWrapper1.attachShadow({ mode: 'open' });
+    this.vueWrapper1?.shadowRoot?.appendChild(this.vueWrapper2);
+
+    // if (supportShadowDOM) {
+    //   setTimeout(() => {
+    //     rootEleWrapper.attachShadow({ mode: 'open' });
+    //     rootEleWrapper.shadowRoot?.appendChild(this.vueWrapper1);
+    //   });
+    // } else {
+    //   rootEleWrapper.appendChild(this.vueWrapper1);
+    // }
     rootEleWrapper.appendChild(this.vueWrapper1);
     setTimeout(() => {
       /**
@@ -98,10 +165,15 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
        * vue组件内部那些选择dom的方法可能会产生问题
        */
       if (!this.visible) {
-        this.vueWrapper1 = rootEleWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
+        // if (supportShadowDOM) {
+        //   this.vueWrapper1 = rootEleWrapper?.
+        //     shadowRoot?.removeChild(this.vueWrapper1) as HTMLDivElement;
+        // } else {
+          this.vueWrapper1 = rootEleWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
+        // }
       }
       this.vueWrapper1.style.display = 'block';
-    })
+    });
   }
 
   componentDidUpdate = () => {
@@ -127,6 +199,65 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
     (this.vueWrapper1 as any) = null;
     (this.vueWrapper2 as any) = null;
     this.parcel.unmount();
+  }
+
+  private initHackSelector = (
+    name: keyof ISelecotr,
+    originSelectorFn: ((id: string) => HTMLElement | null) |
+      (<E extends Element = Element>(id: string) => NodeListOf<E>),
+  ) => {
+    return (codeIsExecuting: boolean) => {
+      const HTMLDocumentPrototype = (HTMLDocument.prototype as any);
+      if (!codeIsExecuting) HTMLDocumentPrototype[name] = originSelectorFn;
+      const _this = this;
+      HTMLDocumentPrototype[name] = function <E extends Element = Element>(id: string):
+        HTMLElement | null | NodeListOf<E> {
+        return (originSelectorFn as any).call(this, id) || (
+          _this.vueWrapper1.shadowRoot &&
+          _this.vueWrapper1.shadowRoot[name] &&
+          (_this.vueWrapper1.shadowRoot as any)[name](id) as HTMLElement | null | NodeListOf<E>
+        );
+      }
+    }
+  }
+
+  private internalHackCSSsandbox = (
+    originAppendChild: <T extends Node>(this: any, newChild: T) => T,
+    codeIsExecuting: boolean,
+  ) => {
+    /**
+     * css 沙箱基于shadow dom
+     * 如果浏览器版本不支持shadow dom 那就不玩了
+     */
+    if (!this.rootNodeWrapper.current?.attachShadow) return;
+    if (!codeIsExecuting) HTMLHeadElement.prototype.appendChild = originAppendChild;
+    const LINK_TAG_NAME = 'LINK';
+    const STYLE_TAG_NAME = 'STYLE';
+    const _this = this;
+    HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, newChild: T) {
+      const element = newChild as any;
+      if (element.tagName) {
+        switch (element.tagName) {
+          case LINK_TAG_NAME:
+          case STYLE_TAG_NAME: {
+            _this.styleElements.push(element);
+            return originAppendChild.call(this, element.cloneNode()) as T;
+          }
+        }
+      }
+      return originAppendChild.call(this, element) as T;
+    };
+
+  }
+
+  private internalHackJSSelector = (
+    originAppendChild: object,
+    selectorList: string[],
+    codeIsExecuting: boolean,
+  ) => {
+    selectorList.forEach(selectorName => {
+
+    });
   }
 
   private registerVueComponent = (el: string | HTMLElement, vueComponent: object, id: string) => {
@@ -224,6 +355,14 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
   private getOriginVueComponent = (): object => {
     if (this.loadType === 'script') {
       return new Promise(res => {
+        /**
+         * script标签没有defer或async的时候
+         * 下载数据以及执行都是同步的
+         */
+        (this.internalHackCSSsandbox as Function)(true);
+        (this.internalHackSelector as Function)('getElementById', true);
+        (this.internalHackSelector as Function)('querySelector', true);
+        (this.internalHackSelector as Function)('querySelectorAll', true);
         const type = 'text/javascript';
         const oScript1 = document.createElement('script');
         oScript1.type = type;
@@ -235,7 +374,11 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
         oScript2.type = type;
         oScript2.src = this.currentUrl;
         document.body.appendChild(oScript2);
-        oScript2.onload = () =>{
+        oScript2.onload = () => {
+          (this.internalHackCSSsandbox as Function)(false);
+          (this.internalHackSelector as Function)('getElementById', false);
+          (this.internalHackSelector as Function)('querySelector', false);
+          (this.internalHackSelector as Function)('querySelectorAll', false);
           const currentSelf: any = window.self;
           (window as any).self = originSelf;
           if (!this.currentName) (this.currentName = this.getCurrentName(currentSelf));
@@ -254,7 +397,15 @@ export default class VueIframe extends React.PureComponent<IProps, any> {
            * 通过XMLHttpRequest获取源代码
            */
           if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+          (this.internalHackCSSsandbox as Function)(true);
+          (this.internalHackSelector as Function)('getElementById', true);
+          (this.internalHackSelector as Function)('querySelector', true);
+          (this.internalHackSelector as Function)('querySelectorAll', true);
           const internalSelf = this.executeOriginCode(data);
+          (this.internalHackCSSsandbox as Function)(false);
+          (this.internalHackSelector as Function)('getElementById', true);
+          (this.internalHackSelector as Function)('querySelector', true);
+          (this.internalHackSelector as Function)('querySelectorAll', true);
           if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
           if (!this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
           this.vueWrapper2.id = this.currentName;

@@ -111,22 +111,42 @@ function (_super) {
   __extends(VueIframe, _super);
 
   function VueIframe(props) {
-    var _this = _super.call(this, props) || this;
+    var _this_1 = _super.call(this, props) || this;
 
-    _this.rootNodeWrapper = React.createRef(); // vue挂载节点是根据el再往上找它的爹
+    _this_1.rootNodeWrapper = React.createRef(); // vue挂载节点是根据el再往上找它的爹
 
-    _this.vueWrapper1 = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
+    _this_1.vueWrapper1 = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
 
-    _this.vueWrapper2 = document.createElement('div'); // 真正vue需要挂载的节点
+    _this_1.vueWrapper2 = document.createElement('div'); // 真正vue需要挂载的节点
 
-    _this.componentDidMount = function () {
-      return __awaiter(_this, void 0, void 0, function () {
-        var rootEleWrapper, component, _a, lifecycles;
+    _this_1.styleElements = [];
 
-        var _this = this;
+    _this_1.initHack = function () {
+      var originAppendChild = HTMLHeadElement.prototype.appendChild;
+      var s = HTMLDocument.prototype;
+      var selectorMap = {
+        'getElementById': _this_1.initHackSelector('getElementById', s['getElementById']),
+        'querySelector': _this_1.initHackSelector('querySelector', s['querySelector']),
+        'querySelectorAll': _this_1.initHackSelector('querySelectorAll', s['querySelectorAll'])
+      };
+      _this_1.internalHackCSSsandbox = _this_1.internalHackCSSsandbox.bind(_this_1, originAppendChild);
+      _this_1.internalHackSelector = _this_1.internalHackSelector.bind(_this_1, selectorMap);
+    };
 
-        return __generator(this, function (_b) {
-          switch (_b.label) {
+    _this_1.internalHackSelector = function (selectorMap, name, codeIsExecuting) {
+      selectorMap[name](codeIsExecuting);
+    };
+
+    _this_1.componentDidMount = function () {
+      return __awaiter(_this_1, void 0, void 0, function () {
+        var rootEleWrapper, component, _a, lifecycles, supportShadowDOM;
+
+        var _this_1 = this;
+
+        var _b, _c;
+
+        return __generator(this, function (_d) {
+          switch (_d.label) {
             case 0:
               if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
               rootEleWrapper = this.rootNodeWrapper.current;
@@ -140,8 +160,8 @@ function (_super) {
               , this.getOriginVueComponent()];
 
             case 1:
-              _a = _b.sent();
-              _b.label = 2;
+              _a = _d.sent();
+              _d.label = 2;
 
             case 2:
               component = _a;
@@ -153,6 +173,19 @@ function (_super) {
                 domElement: '-'
               });
               if (!this.visible) this.vueWrapper1.style.display = 'none';
+              supportShadowDOM = !!rootEleWrapper.attachShadow;
+              this.vueWrapper1.attachShadow({
+                mode: 'open'
+              });
+              (_c = (_b = this.vueWrapper1) === null || _b === void 0 ? void 0 : _b.shadowRoot) === null || _c === void 0 ? void 0 : _c.appendChild(this.vueWrapper2); // if (supportShadowDOM) {
+              //   setTimeout(() => {
+              //     rootEleWrapper.attachShadow({ mode: 'open' });
+              //     rootEleWrapper.shadowRoot?.appendChild(this.vueWrapper1);
+              //   });
+              // } else {
+              //   rootEleWrapper.appendChild(this.vueWrapper1);
+              // }
+
               rootEleWrapper.appendChild(this.vueWrapper1);
               setTimeout(function () {
                 var _a;
@@ -167,11 +200,15 @@ function (_super) {
                  */
 
 
-                if (!_this.visible) {
-                  _this.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this.vueWrapper1);
+                if (!_this_1.visible) {
+                  // if (supportShadowDOM) {
+                  //   this.vueWrapper1 = rootEleWrapper?.
+                  //     shadowRoot?.removeChild(this.vueWrapper1) as HTMLDivElement;
+                  // } else {
+                  _this_1.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this_1.vueWrapper1); // }
                 }
 
-                _this.vueWrapper1.style.display = 'block';
+                _this_1.vueWrapper1.style.display = 'block';
               });
               return [2
               /*return*/
@@ -181,19 +218,19 @@ function (_super) {
       });
     };
 
-    _this.componentDidUpdate = function () {
+    _this_1.componentDidUpdate = function () {
       var _a, _b;
 
-      var _c = _this.props.visible,
+      var _c = _this_1.props.visible,
           visible = _c === void 0 ? true : _c;
-      if (visible === _this.visible) return;
-      _this.visible = visible;
-      var rootNodeWrapper = _this.rootNodeWrapper.current;
+      if (visible === _this_1.visible) return;
+      _this_1.visible = visible;
+      var rootNodeWrapper = _this_1.rootNodeWrapper.current;
 
       if (!visible) {
-        _this.vueWrapper1 = (_a = rootNodeWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this.vueWrapper1);
+        _this_1.vueWrapper1 = (_a = rootNodeWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this_1.vueWrapper1);
       } else {
-        (_b = rootNodeWrapper) === null || _b === void 0 ? void 0 : _b.appendChild(_this.vueWrapper1);
+        (_b = rootNodeWrapper) === null || _b === void 0 ? void 0 : _b.appendChild(_this_1.vueWrapper1);
       }
     };
     /**
@@ -204,16 +241,65 @@ function (_super) {
      */
 
 
-    _this.componentWillUnmount = function () {
-      _this.rootNodeWrapper.current.removeChild(_this.vueWrapper1);
+    _this_1.componentWillUnmount = function () {
+      _this_1.rootNodeWrapper.current.removeChild(_this_1.vueWrapper1);
 
-      _this.vueWrapper1 = null;
-      _this.vueWrapper2 = null;
+      _this_1.vueWrapper1 = null;
+      _this_1.vueWrapper2 = null;
 
-      _this.parcel.unmount();
+      _this_1.parcel.unmount();
     };
 
-    _this.registerVueComponent = function (el, vueComponent, id) {
+    _this_1.initHackSelector = function (name, originSelectorFn) {
+      return function (codeIsExecuting) {
+        var HTMLDocumentPrototype = HTMLDocument.prototype;
+        if (!codeIsExecuting) HTMLDocumentPrototype[name] = originSelectorFn;
+        var _this = _this_1;
+
+        HTMLDocumentPrototype[name] = function (id) {
+          return originSelectorFn.call(this, id) || _this.vueWrapper1.shadowRoot && _this.vueWrapper1.shadowRoot[name] && _this.vueWrapper1.shadowRoot[name](id);
+        };
+      };
+    };
+
+    _this_1.internalHackCSSsandbox = function (originAppendChild, codeIsExecuting) {
+      var _a;
+      /**
+       * css 沙箱基于shadow dom
+       * 如果浏览器版本不支持shadow dom 那就不玩了
+       */
+
+
+      if (!((_a = _this_1.rootNodeWrapper.current) === null || _a === void 0 ? void 0 : _a.attachShadow)) return;
+      if (!codeIsExecuting) HTMLHeadElement.prototype.appendChild = originAppendChild;
+      var LINK_TAG_NAME = 'LINK';
+      var STYLE_TAG_NAME = 'STYLE';
+      var _this = _this_1;
+
+      HTMLHeadElement.prototype.appendChild = function (newChild) {
+        var element = newChild;
+
+        if (element.tagName) {
+          switch (element.tagName) {
+            case LINK_TAG_NAME:
+            case STYLE_TAG_NAME:
+              {
+                _this.styleElements.push(element);
+
+                return originAppendChild.call(this, element.cloneNode());
+              }
+          }
+        }
+
+        return originAppendChild.call(this, element);
+      };
+    };
+
+    _this_1.internalHackJSSelector = function (originAppendChild, selectorList, codeIsExecuting) {
+      selectorList.forEach(function (selectorName) {});
+    };
+
+    _this_1.registerVueComponent = function (el, vueComponent, id) {
       var vueInstance = singleSpaVue({
         Vue: Vue,
         appOptions: {
@@ -224,7 +310,7 @@ function (_super) {
                 id: id
               }
             }, [h(vueComponent, {
-              props: __assign({}, _this.props.extraProps)
+              props: __assign({}, _this_1.props.extraProps)
             })]);
           }
         }
@@ -236,11 +322,11 @@ function (_super) {
       };
     };
 
-    _this.isVueComponent = function (component) {
+    _this_1.isVueComponent = function (component) {
       return component && _typeof(component) === 'object' && typeof component.render === 'function';
     };
 
-    _this.getOriginCode = function (url, method, data) {
+    _this_1.getOriginCode = function (url, method, data) {
       if (method === void 0) {
         method = 'GET';
       }
@@ -265,7 +351,7 @@ function (_super) {
       });
     };
 
-    _this.getCurrentName = function (self) {
+    _this_1.getCurrentName = function (self) {
       for (var props in self) {
         if (!self.hasOwnProperty(props)) break;
         if (props !== 'Vue') return props;
@@ -274,13 +360,13 @@ function (_super) {
       return '';
     };
 
-    _this.executeOriginCode = function (code) {
+    _this_1.executeOriginCode = function (code) {
       var internalSelf = {
         Vue: Vue
       };
-      var reg = _this.publicPathReg;
-      var publicPath = _this.currentPublicPath;
-      var url = _this.currentUrl;
+      var reg = _this_1.publicPathReg;
+      var publicPath = _this_1.currentPublicPath;
+      var url = _this_1.currentUrl;
 
       if (reg.test(code)) {
         /**
@@ -319,9 +405,21 @@ function (_super) {
       return internalSelf;
     };
 
-    _this.getOriginVueComponent = function () {
-      if (_this.loadType === 'script') {
+    _this_1.getOriginVueComponent = function () {
+      if (_this_1.loadType === 'script') {
         return new Promise(function (res) {
+          /**
+           * script标签没有defer或async的时候
+           * 下载数据以及执行都是同步的
+           */
+          _this_1.internalHackCSSsandbox(true);
+
+          _this_1.internalHackSelector('getElementById', true);
+
+          _this_1.internalHackSelector('querySelector', true);
+
+          _this_1.internalHackSelector('querySelectorAll', true);
+
           var type = 'text/javascript';
           var oScript1 = document.createElement('script');
           oScript1.type = type;
@@ -331,38 +429,62 @@ function (_super) {
           window.self.Vue = Vue;
           var oScript2 = document.createElement('script');
           oScript2.type = type;
-          oScript2.src = _this.currentUrl;
+          oScript2.src = _this_1.currentUrl;
           document.body.appendChild(oScript2);
 
           oScript2.onload = function () {
             var _a, _b;
 
+            _this_1.internalHackCSSsandbox(false);
+
+            _this_1.internalHackSelector('getElementById', false);
+
+            _this_1.internalHackSelector('querySelector', false);
+
+            _this_1.internalHackSelector('querySelectorAll', false);
+
             var currentSelf = window.self;
             window.self = originSelf;
-            if (!_this.currentName) _this.currentName = _this.getCurrentName(currentSelf);
-            if (!_this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
-            _this.vueWrapper2.id = _this.currentName;
-            _this.component = currentSelf[_this.currentName];
+            if (!_this_1.currentName) _this_1.currentName = _this_1.getCurrentName(currentSelf);
+            if (!_this_1.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+            _this_1.vueWrapper2.id = _this_1.currentName;
+            _this_1.component = currentSelf[_this_1.currentName];
             (_a = oScript1.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(oScript1);
             (_b = oScript2.parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(oScript2);
-            res(_this.component);
+            res(_this_1.component);
           };
         });
       } else {
         return new Promise(function (res) {
-          _this.getOriginCode(_this.currentUrl).then(function (data) {
+          _this_1.getOriginCode(_this_1.currentUrl).then(function (data) {
             /**
              * 通过XMLHttpRequest获取源代码
              */
             if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
 
-            var internalSelf = _this.executeOriginCode(data);
+            _this_1.internalHackCSSsandbox(true);
 
-            if (!_this.currentName) _this.currentName = _this.getCurrentName(internalSelf);
-            if (!_this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
-            _this.vueWrapper2.id = _this.currentName;
-            _this.component = internalSelf[_this.currentName];
-            res(_this.component);
+            _this_1.internalHackSelector('getElementById', true);
+
+            _this_1.internalHackSelector('querySelector', true);
+
+            _this_1.internalHackSelector('querySelectorAll', true);
+
+            var internalSelf = _this_1.executeOriginCode(data);
+
+            _this_1.internalHackCSSsandbox(false);
+
+            _this_1.internalHackSelector('getElementById', true);
+
+            _this_1.internalHackSelector('querySelector', true);
+
+            _this_1.internalHackSelector('querySelectorAll', true);
+
+            if (!_this_1.currentName) _this_1.currentName = _this_1.getCurrentName(internalSelf);
+            if (!_this_1.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+            _this_1.vueWrapper2.id = _this_1.currentName;
+            _this_1.component = internalSelf[_this_1.currentName];
+            res(_this_1.component);
           }).catch(function (err) {
             /**
              * 如果进入到这里说明可能请求出错了
@@ -372,17 +494,17 @@ function (_super) {
              * 如果出现跨域问题就强制使用script方式加载一遍
              */
 
-            _this.loadType = 'script';
-            res(_this.getOriginVueComponent());
+            _this_1.loadType = 'script';
+            res(_this_1.getOriginVueComponent());
           });
         });
       }
     };
 
-    _this.render = function () {
+    _this_1.render = function () {
       return React.createElement("div", {
-        id: _this.props.id || '',
-        ref: _this.rootNodeWrapper
+        id: _this_1.props.id || '',
+        ref: _this_1.rootNodeWrapper
       });
     };
 
@@ -392,27 +514,50 @@ function (_super) {
         name = props.name,
         visible = props.visible,
         instable_publicPathBeReplacedKey = props.instable_publicPathBeReplacedKey;
-    _this.loadType = loadType || 'script'; // 初始化时候是否显示
+    _this_1.loadType = loadType || 'script'; // 初始化时候是否显示
 
-    _this.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
+    _this_1.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
 
-    _this.component = component; // 获取到外部传来的url
+    _this_1.component = component; // 获取到外部传来的url
 
-    _this.currentUrl = url || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
+    _this_1.currentUrl = url || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
 
-    _this.publicPathKey = instable_publicPathBeReplacedKey || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
+    _this_1.publicPathKey = instable_publicPathBeReplacedKey || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
 
-    _this.publicPathReg = new RegExp(_this.publicPathKey, 'g'); // 生成每个iframe的唯一表示
+    _this_1.publicPathReg = new RegExp(_this_1.publicPathKey, 'g'); // 生成每个iframe的唯一表示
 
-    _this.currentName = name || ''; // 获取传进来的url的协议+域名+端口
+    _this_1.currentName = name || ''; // 获取传进来的url的协议+域名+端口
 
-    _this.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
+    _this_1.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this_1.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
 
-    _this.vueWrapper2.id = _this.currentName; // 节点1是为了可以让vue随时visibility 同时使vue的根节点脱离react的fiber树
+    _this_1.vueWrapper2.id = _this_1.currentName; // 节点1是为了可以让vue随时visibility 同时使vue的根节点脱离react的fiber树
+    // this.vueWrapper1.appendChild(this.vueWrapper2);
+    // 临时保存appendChild
 
-    _this.vueWrapper1.appendChild(_this.vueWrapper2);
+    _this_1.initHack();
 
-    return _this;
+    return _this_1; // const originAppendChild = HTMLHeadElement.prototype.appendChild;
+    // const originSelector = HTMLDocument.prototype;
+    // const selectorMap = {
+    //   'getElementById': this.internalHackSelector('getElementById', originSelector['getElementById']),
+    //   'querySelector': this.internalHackSelector('querySelector', originSelector['querySelector']),
+    //   'querySelectorAll': this.internalHackSelector('querySelectorAll', originSelector['querySelectorAll']),
+    // };
+    // (this.internalHackCSSsandbox as Function) =
+    //   this.internalHackCSSsandbox.bind(this, originAppendChild);
+    // (this.internalHackJSSelector as Function) =
+    //   this.internalHackJSSelector.bind(this, originSelector, selectorList);
+    // selectorList.forEach(selectorName => {
+    // });
+    // (elementId: string): HTMLElement | null
+    // const originGetElementById = originSelector['getElementById'];
+    // const _this = this;
+    // HTMLDocument.prototype.getElementById = function (id: string): HTMLElement | null {
+    //   console.log('88888 进来了了饿了来了')
+    //   const el = originGetElementById.call(this, id) ||
+    //     (_this.vueWrapper1.shadowRoot?.getElementById(id) as HTMLElement | null);
+    //   return el;
+    // }
   }
 
   return VueIframe;
