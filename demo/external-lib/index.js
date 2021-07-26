@@ -121,36 +121,19 @@ function (_super) {
 
     _this_1.styleElements = [];
 
-    _this_1.initHack = function () {
-      var originAppendChild = HTMLHeadElement.prototype.appendChild;
-      var s = HTMLDocument.prototype;
-      var selectorMap = {
-        'getElementById': _this_1.initHackSelector('getElementById', s['getElementById']),
-        'querySelector': _this_1.initHackSelector('querySelector', s['querySelector']),
-        'querySelectorAll': _this_1.initHackSelector('querySelectorAll', s['querySelectorAll'])
-      };
-      _this_1.internalHackCSSsandbox = _this_1.internalHackCSSsandbox.bind(_this_1, originAppendChild);
-      _this_1.internalHackSelector = _this_1.internalHackSelector.bind(_this_1, selectorMap);
-    };
-
-    _this_1.internalHackSelector = function (selectorMap, name, codeIsExecuting) {
-      selectorMap[name](codeIsExecuting);
-    };
-
     _this_1.componentDidMount = function () {
       return __awaiter(_this_1, void 0, void 0, function () {
-        var rootEleWrapper, component, _a, lifecycles, supportShadowDOM;
+        var rootEleWrapper, component, _a;
 
-        var _this_1 = this;
-
-        var _b, _c;
-
-        return __generator(this, function (_d) {
-          switch (_d.label) {
+        return __generator(this, function (_b) {
+          switch (_b.label) {
             case 0:
               if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
               rootEleWrapper = this.rootNodeWrapper.current;
               if (!rootEleWrapper) throw Error('没有vue组件的root节点');
+              /** 如果外部传了component就随机起个name */
+
+              this.props.component && (this.currentName = String(+new Date()));
               _a = this.props.component;
               if (_a) return [3
               /*break*/
@@ -160,56 +143,16 @@ function (_super) {
               , this.getOriginVueComponent()];
 
             case 1:
-              _a = _d.sent();
-              _d.label = 2;
+              _a = _b.sent();
+              _b.label = 2;
 
             case 2:
               component = _a;
               if (!this.isVueComponent(component)) return [2
               /*return*/
               ];
-              lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
-              this.parcel = mountRootParcel(lifecycles, {
-                domElement: '-'
-              });
-              if (!this.visible) this.vueWrapper1.style.display = 'none';
-              supportShadowDOM = !!rootEleWrapper.attachShadow;
-              this.vueWrapper1.attachShadow({
-                mode: 'open'
-              });
-              (_c = (_b = this.vueWrapper1) === null || _b === void 0 ? void 0 : _b.shadowRoot) === null || _c === void 0 ? void 0 : _c.appendChild(this.vueWrapper2); // if (supportShadowDOM) {
-              //   setTimeout(() => {
-              //     rootEleWrapper.attachShadow({ mode: 'open' });
-              //     rootEleWrapper.shadowRoot?.appendChild(this.vueWrapper1);
-              //   });
-              // } else {
-              //   rootEleWrapper.appendChild(this.vueWrapper1);
-              // }
-
-              rootEleWrapper.appendChild(this.vueWrapper1);
-              setTimeout(function () {
-                var _a;
-                /**
-                 * 对于一上来visible就是不可见的组件
-                 * 先把display置为none 然后再添加进页面
-                 * 这是为了防止vue组件中可能会有类似echarts
-                 * 之类的工具会通过document.querySelector等
-                 * 方法选择dom
-                 * 如果直接就不把vue组件添加进页面的话
-                 * vue组件内部那些选择dom的方法可能会产生问题
-                 */
-
-
-                if (!_this_1.visible) {
-                  // if (supportShadowDOM) {
-                  //   this.vueWrapper1 = rootEleWrapper?.
-                  //     shadowRoot?.removeChild(this.vueWrapper1) as HTMLDivElement;
-                  // } else {
-                  _this_1.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this_1.vueWrapper1); // }
-                }
-
-                _this_1.vueWrapper1.style.display = 'block';
-              });
+              this.registerComponentAndMount(component);
+              this.addComponentToPage(rootEleWrapper);
               return [2
               /*return*/
               ];
@@ -246,9 +189,34 @@ function (_super) {
 
       _this_1.vueWrapper1 = null;
       _this_1.vueWrapper2 = null;
+      _this_1.rootNodeWrapper = null;
+      _this_1.styleElements = null;
 
       _this_1.parcel.unmount();
+
+      _this_1.parcel = null;
     };
+
+    _this_1.initHack = function () {
+      var originAppendChild = HTMLHeadElement.prototype.appendChild;
+      var s = HTMLDocument.prototype;
+      var selectorMap = {
+        'getElementById': _this_1.initHackSelector('getElementById', s['getElementById']),
+        'querySelector': _this_1.initHackSelector('querySelector', s['querySelector']),
+        'querySelectorAll': _this_1.initHackSelector('querySelectorAll', s['querySelectorAll'])
+      };
+      /**
+       * 被bind过的函数的ts类型不会写...... 要死......
+       */
+
+      _this_1.internalHackCSSsandbox = _this_1.internalHackCSSsandbox.bind(_this_1, originAppendChild);
+      _this_1.internalHackSelector = _this_1.internalHackSelector.bind(_this_1, selectorMap);
+    };
+    /**
+     * 快被 typescript 搞死了......
+     * 有没有大佬能教教我这块儿应该怎么写ts
+     */
+
 
     _this_1.initHackSelector = function (name, originSelectorFn) {
       return function (codeIsExecuting) {
@@ -262,11 +230,19 @@ function (_super) {
       };
     };
 
+    _this_1.internalHackSelector = function (selectorMap, name, codeIsExecuting) {
+      selectorMap[name](codeIsExecuting);
+    };
+
     _this_1.internalHackCSSsandbox = function (originAppendChild, codeIsExecuting) {
       var _a;
       /**
        * css 沙箱基于shadow dom
-       * 如果浏览器版本不支持shadow dom 那就不玩了
+       * 如果浏览器版本不支持shadow dom的话
+       * 可以通过静态检测vue组件render方法的字符串
+       * 动态给每个节点的attrs上注入一个自定义特殊属性的方式
+       * 然后再给每个style文件的innerText的每个选择器加上属性选择
+       * TODO: 比较麻烦 以后再支持吧
        */
 
 
@@ -295,8 +271,60 @@ function (_super) {
       };
     };
 
-    _this_1.internalHackJSSelector = function (originAppendChild, selectorList, codeIsExecuting) {
-      selectorList.forEach(function (selectorName) {});
+    _this_1.registerComponentAndMount = function (component) {
+      var lifecycles = _this_1.registerVueComponent(_this_1.vueWrapper2, component, _this_1.currentName);
+
+      _this_1.parcel = mountRootParcel(lifecycles, {
+        domElement: '-'
+      });
+    };
+
+    _this_1.addComponentToPage = function (rootEleWrapper) {
+      var _a, _b;
+      /** 如果visible是false就暂时先把display置为none 之后再remove */
+
+
+      if (!_this_1.visible) _this_1.vueWrapper1.style.display = 'none';
+      var supportShadowDOM = !!_this_1.vueWrapper1.attachShadow;
+      var root = supportShadowDOM ? _this_1.vueWrapper1.attachShadow({
+        mode: 'open'
+      }) && _this_1.vueWrapper1.shadowRoot : _this_1.vueWrapper1;
+      var cssurl = _this_1.currentCSSUrl;
+
+      if (cssurl) {
+        var oLink = document.createElement('link');
+        oLink.rel = "stylesheet";
+        oLink.href = cssurl;
+        (_a = root) === null || _a === void 0 ? void 0 : _a.appendChild(oLink);
+      }
+
+      _this_1.styleElements.forEach(function (style) {
+        var _a;
+
+        (_a = root) === null || _a === void 0 ? void 0 : _a.appendChild(style);
+      });
+
+      (_b = root) === null || _b === void 0 ? void 0 : _b.appendChild(_this_1.vueWrapper2);
+      rootEleWrapper.appendChild(_this_1.vueWrapper1);
+      setTimeout(function () {
+        var _a;
+        /**
+         * 对于一上来visible就是不可见的组件
+         * 先把display置为none 然后再添加进页面
+         * 这是为了防止vue组件中可能会有类似echarts
+         * 之类的工具会通过document.querySelector等
+         * 方法选择dom
+         * 如果直接就不把vue组件添加进页面的话
+         * vue组件内部那些选择dom的方法可能会产生问题
+         */
+
+
+        if (!_this_1.visible) {
+          _this_1.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this_1.vueWrapper1);
+        }
+
+        _this_1.vueWrapper1.style.display = 'block';
+      });
     };
 
     _this_1.registerVueComponent = function (el, vueComponent, id) {
@@ -509,20 +537,23 @@ function (_super) {
     };
 
     var loadType = props.loadType,
-        url = props.url,
+        jsurl = props.jsurl,
+        cssurl = props.cssurl,
         component = props.component,
         name = props.name,
         visible = props.visible,
-        instable_publicPathBeReplacedKey = props.instable_publicPathBeReplacedKey;
+        instable_publicPath = props.instable_publicPath;
     _this_1.loadType = loadType || 'script'; // 初始化时候是否显示
 
     _this_1.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
 
     _this_1.component = component; // 获取到外部传来的url
 
-    _this_1.currentUrl = url || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
+    _this_1.currentUrl = jsurl || ''; // 获取外部传进来的css的url 可能没有
 
-    _this_1.publicPathKey = instable_publicPathBeReplacedKey || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
+    _this_1.currentCSSUrl = cssurl || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
+
+    _this_1.publicPathKey = instable_publicPath || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
 
     _this_1.publicPathReg = new RegExp(_this_1.publicPathKey, 'g'); // 生成每个iframe的唯一表示
 
@@ -530,34 +561,11 @@ function (_super) {
 
     _this_1.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this_1.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
 
-    _this_1.vueWrapper2.id = _this_1.currentName; // 节点1是为了可以让vue随时visibility 同时使vue的根节点脱离react的fiber树
-    // this.vueWrapper1.appendChild(this.vueWrapper2);
-    // 临时保存appendChild
+    _this_1.vueWrapper2.id = _this_1.currentName; // 初始化一些hack
 
     _this_1.initHack();
 
-    return _this_1; // const originAppendChild = HTMLHeadElement.prototype.appendChild;
-    // const originSelector = HTMLDocument.prototype;
-    // const selectorMap = {
-    //   'getElementById': this.internalHackSelector('getElementById', originSelector['getElementById']),
-    //   'querySelector': this.internalHackSelector('querySelector', originSelector['querySelector']),
-    //   'querySelectorAll': this.internalHackSelector('querySelectorAll', originSelector['querySelectorAll']),
-    // };
-    // (this.internalHackCSSsandbox as Function) =
-    //   this.internalHackCSSsandbox.bind(this, originAppendChild);
-    // (this.internalHackJSSelector as Function) =
-    //   this.internalHackJSSelector.bind(this, originSelector, selectorList);
-    // selectorList.forEach(selectorName => {
-    // });
-    // (elementId: string): HTMLElement | null
-    // const originGetElementById = originSelector['getElementById'];
-    // const _this = this;
-    // HTMLDocument.prototype.getElementById = function (id: string): HTMLElement | null {
-    //   console.log('88888 进来了了饿了来了')
-    //   const el = originGetElementById.call(this, id) ||
-    //     (_this.vueWrapper1.shadowRoot?.getElementById(id) as HTMLElement | null);
-    //   return el;
-    // }
+    return _this_1;
   }
 
   return VueIframe;

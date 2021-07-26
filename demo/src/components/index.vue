@@ -1,17 +1,19 @@
 <template>
-  <div>{{msg}}</div>
+  <button @click="handleClick" >{{msg}}</button>
 </template>
 
 <script>
-import React from 'react';
 export default {
   name: 'hello',
-  data () {
+  data() {
     return {
       msg: '这是一个vue组件',
     }
   },
-
+  methods: {
+    handleClick() {
+      this.msg = this.msg + 1;
+    }
+  }
 }
-
 </script>
