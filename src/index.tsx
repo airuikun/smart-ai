@@ -3,6 +3,8 @@ import Vue from 'vue';
 import { mountRootParcel, ParcelConfig } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
 
+window.onerror = (err) => { console.log('chucuole ', err) ; return true}
+
 const __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 Vue.prototype._init = function(options: any) {
   /**
@@ -60,7 +62,7 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
   private parcel: any; // parcel实例
   private vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
   private vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
-  private styleElements: HTMLLinkElement[] | HTMLStyleElement[] = [];
+  private styleElements: HTMLLinkElement[] | HTMLStyleElement[] = []; // 用来临时存放要被添加的style标签
 
   constructor(props: IProps) {
     super(props);
@@ -122,12 +124,15 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
    */
   componentWillUnmount = () => {
     (this.rootNodeWrapper.current as any).removeChild(this.vueWrapper1);
+    this.parcel.unmount();
+    this.parcel = null;
+    (this.internalHackSelector as Function)('getElementById', false);
+    (this.internalHackSelector as Function)('querySelector', false);
+    (this.internalHackSelector as Function)('querySelectorAll', false);
     (this.vueWrapper1 as any) = null;
     (this.vueWrapper2 as any) = null;
     (this.rootNodeWrapper as any) = null;
-    (this.styleElements as any) = null;
-    this.parcel.unmount();
-    this.parcel = null;
+    (this.styleElements as any) = [];
   }
 
   private initHack = () => {
@@ -154,7 +159,8 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
   private initHackSelector = (
     name: keyof ISelecotr,
     originSelectorFn: ((id: string) => HTMLElement | null) |
-      (<E extends Element = Element>(id: string) => NodeListOf<E>),
+      (<E extends Element = Element>(id: string) => NodeListOf<E>) |
+      HTMLCollectionOf<Element>,
   ) => {
     return (codeIsExecuting: boolean) => {
       const HTMLDocumentPrototype = (HTMLDocument.prototype as any);
@@ -162,11 +168,13 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
       const _this = this;
       HTMLDocumentPrototype[name] = function <E extends Element = Element>(id: string):
         HTMLElement | null | NodeListOf<E> {
-        return (originSelectorFn as any).call(this, id) || (
+        const originEl = (originSelectorFn as any).call(this, id);
+        const shadowEl = _this.vueWrapper1 &&
           _this.vueWrapper1.shadowRoot &&
           _this.vueWrapper1.shadowRoot[name] &&
-          (_this.vueWrapper1.shadowRoot as any)[name](id) as HTMLElement | null | NodeListOf<E>
-        );
+          typeof _this.vueWrapper1.shadowRoot[name] === 'function' &&
+          (_this.vueWrapper1.shadowRoot as any)[name](id) as HTMLElement | null | NodeListOf<E>;
+        return originEl || (shadowEl || null);
       }
     }
   }
@@ -369,13 +377,10 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
         document.body.appendChild(oScript2);
         oScript2.onload = () => {
           (this.internalHackCSSsandbox as Function)(false);
-          (this.internalHackSelector as Function)('getElementById', false);
-          (this.internalHackSelector as Function)('querySelector', false);
-          (this.internalHackSelector as Function)('querySelectorAll', false);
           const currentSelf: any = window.self;
           (window as any).self = originSelf;
           if (!this.currentName) (this.currentName = this.getCurrentName(currentSelf));
-          if (!this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+          if (!this.currentName) throw Error('没有获取到vue组件');
           this.vueWrapper2.id = this.currentName;
           this.component = currentSelf[this.currentName];
           oScript1.parentNode?.removeChild(oScript1);
@@ -396,11 +401,8 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
           (this.internalHackSelector as Function)('querySelectorAll', true);
           const internalSelf = this.executeOriginCode(data);
           (this.internalHackCSSsandbox as Function)(false);
-          (this.internalHackSelector as Function)('getElementById', true);
-          (this.internalHackSelector as Function)('querySelector', true);
-          (this.internalHackSelector as Function)('querySelectorAll', true);
           if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
-          if (!this.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+          if (!this.currentName) throw Error('没有获取到vue组件');
           this.vueWrapper2.id = this.currentName;
           this.component = internalSelf[this.currentName];
           res(this.component);

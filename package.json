@@ -4,7 +4,7 @@
   "description": "react-vue-mirco-frame",
   "main": "lib/index.js",
   "scripts": {
-    "start": "concurrently \"npm run start:demo\" \"npm run start:rollup\"",
+    "start": "concurrently \"npm run start:demo\" \"npm run start:rollup\" \"node ./mock-component/server.js\"",
     "start:rollup": "NODE_ENV=development rollup --config ./config/rollup/rollup.dev.conf.js -w",
     "start:demo": "node_modules/.bin/webpack-dev-server --config config/webpack/webpack.config.js",
     "start2": "NODE_ENV=development rollup --config ./config/rollup.dev.conf.js -w && livereload 'src/' ",
@@ -31,6 +31,7 @@
     "concurrently": "^5.1.0",
     "css-loader": "^3.4.2",
     "custom-event": "^1.0.1",
+    "express": "^4.17.1",
     "html-webpack-plugin": "^3.2.0",
     "http-server": "^0.12.0",
     "jest": "^24.9.0",

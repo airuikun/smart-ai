@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import VueIFrame from '../../src/index';
+// @ts-ignore
+import VueIFrame from 'external-lib';
+// import VueIFrame from '../../src/index';
 import { Tabs } from 'antd';
 import 'antd/dist/antd.css';
 // @ts-ignore
 import VueComponent from './components/index.vue';
-
-console.log(3333, VueComponent.render);
 
 const TabPane = Tabs.TabPane;
 
@@ -28,14 +28,19 @@ const Test: React.FC<{}> = () => {
         <button onClick={handleClick4}>点击激活第三个vue组件 多个不同的vue组件可以共存</button>
       </div>
       <div>
-        <VueIFrame jsurl="http://127.0.0.1:8877/vueComponent2.umd.js" visible={active4} />
+        <VueIFrame jsurl="http://127.0.0.1:13190/vueComponent2.umd.js" visible={active4} />
         <Tabs>
           <TabPane tab={'状态跟踪'} key="1" >
             <VueIFrame component={VueComponent} visible={active2} />
           </TabPane>
           <Tabs.TabPane tab={'查看日志'} key="2" >
             <div className="log-dialog">
-              <VueIFrame jsurl="http://127.0.0.1:8877/vueComponent1.umd.js" visible={active3} />
+              <VueIFrame jsurl="http://127.0.0.1:13190/vueComponent1.umd.js" visible={active3} />
+            </div>
+          </Tabs.TabPane>
+          <Tabs.TabPane tab={'凉子阿姨'} key="3" >
+            <div className="log-dialog">
+              <VueIFrame jsurl="http://127.0.0.1:13190/vueComponent3.umd.js" />
             </div>
           </Tabs.TabPane>
         </Tabs>

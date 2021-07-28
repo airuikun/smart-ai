@@ -96,6 +96,11 @@ function __generator(thisArg, body) {
     }
 }
 
+window.onerror = function (err) {
+  console.log('chucuole ', err);
+  return true;
+};
+
 var __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 
 Vue.prototype._init = function (options) {
@@ -119,7 +124,7 @@ function (_super) {
 
     _this_1.vueWrapper2 = document.createElement('div'); // 真正vue需要挂载的节点
 
-    _this_1.styleElements = [];
+    _this_1.styleElements = []; // 用来临时存放要被添加的style标签
 
     _this_1.componentDidMount = function () {
       return __awaiter(_this_1, void 0, void 0, function () {
@@ -187,14 +192,20 @@ function (_super) {
     _this_1.componentWillUnmount = function () {
       _this_1.rootNodeWrapper.current.removeChild(_this_1.vueWrapper1);
 
-      _this_1.vueWrapper1 = null;
-      _this_1.vueWrapper2 = null;
-      _this_1.rootNodeWrapper = null;
-      _this_1.styleElements = null;
-
       _this_1.parcel.unmount();
 
       _this_1.parcel = null;
+
+      _this_1.internalHackSelector('getElementById', false);
+
+      _this_1.internalHackSelector('querySelector', false);
+
+      _this_1.internalHackSelector('querySelectorAll', false);
+
+      _this_1.vueWrapper1 = null;
+      _this_1.vueWrapper2 = null;
+      _this_1.rootNodeWrapper = null;
+      _this_1.styleElements = [];
     };
 
     _this_1.initHack = function () {
@@ -225,7 +236,11 @@ function (_super) {
         var _this = _this_1;
 
         HTMLDocumentPrototype[name] = function (id) {
-          return originSelectorFn.call(this, id) || _this.vueWrapper1.shadowRoot && _this.vueWrapper1.shadowRoot[name] && _this.vueWrapper1.shadowRoot[name](id);
+          var originEl = originSelectorFn.call(this, id);
+
+          var shadowEl = _this.vueWrapper1 && _this.vueWrapper1.shadowRoot && _this.vueWrapper1.shadowRoot[name] && typeof _this.vueWrapper1.shadowRoot[name] === 'function' && _this.vueWrapper1.shadowRoot[name](id);
+
+          return originEl || shadowEl || null;
         };
       };
     };
@@ -465,16 +480,10 @@ function (_super) {
 
             _this_1.internalHackCSSsandbox(false);
 
-            _this_1.internalHackSelector('getElementById', false);
-
-            _this_1.internalHackSelector('querySelector', false);
-
-            _this_1.internalHackSelector('querySelectorAll', false);
-
             var currentSelf = window.self;
             window.self = originSelf;
             if (!_this_1.currentName) _this_1.currentName = _this_1.getCurrentName(currentSelf);
-            if (!_this_1.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+            if (!_this_1.currentName) throw Error('没有获取到vue组件');
             _this_1.vueWrapper2.id = _this_1.currentName;
             _this_1.component = currentSelf[_this_1.currentName];
             (_a = oScript1.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(oScript1);
@@ -502,14 +511,8 @@ function (_super) {
 
             _this_1.internalHackCSSsandbox(false);
 
-            _this_1.internalHackSelector('getElementById', true);
-
-            _this_1.internalHackSelector('querySelector', true);
-
-            _this_1.internalHackSelector('querySelectorAll', true);
-
             if (!_this_1.currentName) _this_1.currentName = _this_1.getCurrentName(internalSelf);
-            if (!_this_1.currentName) throw Error('没有获取到vue组件, 造成问题的原因可能是远程组件并未遵循umd规范');
+            if (!_this_1.currentName) throw Error('没有获取到vue组件');
             _this_1.vueWrapper2.id = _this_1.currentName;
             _this_1.component = internalSelf[_this_1.currentName];
             res(_this_1.component);
