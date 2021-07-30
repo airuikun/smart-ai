@@ -96,11 +96,6 @@ function __generator(thisArg, body) {
     }
 }
 
-window.onerror = function (err) {
-  console.log('chucuole ', err);
-  return true;
-};
-
 var __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 
 Vue.prototype._init = function (options) {

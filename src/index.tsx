@@ -3,8 +3,6 @@ import Vue from 'vue';
 import { mountRootParcel, ParcelConfig } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
 
-window.onerror = (err) => { console.log('chucuole ', err) ; return true}
-
 const __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 Vue.prototype._init = function(options: any) {
   /**
@@ -219,12 +217,12 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     };
   }
 
-  registerComponentAndMount = (component: object): void => {
+  private registerComponentAndMount = (component: object): void => {
     const lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
     this.parcel = mountRootParcel((lifecycles as ParcelConfig), { domElement: '-' });
   }
 
-  addComponentToPage = (rootEleWrapper: HTMLDivElement): void => {
+  private addComponentToPage = (rootEleWrapper: HTMLDivElement): void => {
     /** 如果visible是false就暂时先把display置为none 之后再remove */
     if (!this.visible) this.vueWrapper1.style.display = 'none';
     const supportShadowDOM = !!this.vueWrapper1.attachShadow;

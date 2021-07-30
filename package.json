@@ -1,6 +1,6 @@
 {
   "name": "react-vue-mirco-frame",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "react-vue-mirco-frame",
   "main": "lib/index.js",
   "scripts": {
@@ -30,7 +30,7 @@
     "clean-webpack-plugin": "^3.0.0",
     "concurrently": "^5.1.0",
     "css-loader": "^3.4.2",
-    "custom-event": "^1.0.1",
+    "dtsmake": "0.0.10",
     "express": "^4.17.1",
     "html-webpack-plugin": "^3.2.0",
     "http-server": "^0.12.0",
@@ -68,7 +68,7 @@
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "single-spa": "^4.4.3",
-    "single-spa-vue": "^1.7.0",
+    "single-spa-vue": "1.7.0",
     "vue": "^2.6.11"
   },
   "keywords": [
