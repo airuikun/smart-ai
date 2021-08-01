@@ -2,6 +2,7 @@ import React, { RefObject } from 'react';
 import Vue from 'vue';
 import { mountRootParcel, ParcelConfig } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
+import uniqueId from 'lodash/uniqueId';
 
 const __VUE_INTERNAL_INIT__ = Vue.prototype._init;
 Vue.prototype._init = function(options: any) {
@@ -46,6 +47,131 @@ interface ISelecotr {
   'querySelectorAll': ParentNode;
 }
 
+/**
+ * toolFunction()的时候会返回一个boolean 表示当前是否有vue代码正在运行
+ * toolFunction(-1)的时候会返回所有的ele
+ * toolFunction(element)的时候表示这个元素对应的vue组件代码正在运行
+ * toolFunction(number)的时候表示要获取这个id对应的element
+ * toolFunction(number, false)表示把这个id对应的状态设置为false
+ * toolFunction(number, -1)表示把这个id对应的删除并返回是否所有的都unmount了
+ * 
+ * 1. 啥也不传返回obj里所有属性对应的对象的status属性是否起码有一个为true
+ * 2. 只传一个参数并且是-1的时候把所有的ele返回
+ * 3. 只传一个参数并且是divElement的话就往obj添加一个对象同时返回runId
+ * 4. 只传一个参数并且是number类型的话, 就返回这个runId对应divElement
+ * 5. 传俩参数并且第一个是number, 第二个是false的话就把这个id对应的对象status改为false
+ * 6. 传进来俩参数第一个是number, 第二个是-1的话, 就把这个id对应的删除
+ */
+const toolFunction = ((
+  obj: { [prop: string]: { running: boolean; ele: HTMLDivElement } },
+  id: number,
+) => {
+  return function(a?: number | HTMLDivElement, b?: HTMLDivElement | false | -1):
+    boolean |
+    HTMLDivElement |
+    HTMLDivElement[] |
+    number 
+  {
+    const length = arguments.length;
+    if (!length) {
+      if (!Object.keys(obj).length) return false;
+      return Object.values(obj).some(item => item.running);
+    } else if (length === 1 && a === -1) {
+      return Object.values(obj).map(item => item.ele);
+    } else if (length === 1 && a instanceof HTMLElement) {
+      obj[id++] = { running: true, ele: a };
+      return id - 1;
+    } else if (length === 1 && typeof a === 'number') {
+      return obj[a].ele;
+    } else if (length === 2 && typeof a === 'number' && b === false) {
+      obj[a].running = false;
+      return obj[a].ele;
+    } else if (length === 2 && typeof a === 'number' && b === -1) {
+      delete obj[a];
+      return !Object.keys(obj).length;
+    }
+    throw Error('传参有问题');
+  }
+})({}, 0);
+
+const getWrapper = ((obj: { [ name: string ]: HTMLDivElement }) => {
+  return (name: string, ele?: HTMLDivElement) => {
+    if (name && ele) (obj[name] = ele)
+    else if (name && !ele) return obj[name];
+  }
+})({});
+
+const originSelectors = HTMLDocument.prototype as any;
+const initHackSelector = (
+  name: keyof ISelecotr,
+  originSelectorFn:
+    Document['getElementById'] |
+    ParentNode['querySelector'] |
+    ParentNode['querySelectorAll']
+) => {
+  return (cancelHack?: boolean) => {
+    const HTMLDocumentPrototype = (HTMLDocument.prototype as any);
+    if (cancelHack) return (HTMLDocumentPrototype[name] = originSelectorFn);
+    HTMLDocumentPrototype[name] = function <E extends Element = Element>(id: string):
+      HTMLElement | null | NodeListOf<E> {
+      const originEl = (originSelectorFn as Function).call(this, id);
+      if (originEl) return originEl;
+      if (!originEl) {
+        const allShadowRoot = toolFunction(-1) as HTMLDivElement[];
+        const len = allShadowRoot.length;
+        for (let i = 0; i < len; i++) {
+          const wrapper = allShadowRoot[i];
+          const shadowEl = wrapper &&
+            wrapper.shadowRoot &&
+            wrapper.shadowRoot[name] &&
+            typeof wrapper.shadowRoot[name] === 'function' &&
+            (wrapper.shadowRoot as any)[name](id) as HTMLElement | null | NodeListOf<E>;
+          if (shadowEl) return shadowEl;
+        }
+      }
+      return null;
+    }
+  };
+}
+
+const originModule = window.module;
+const originRequire = window.require;
+const originExports = window.exports;
+const selectorMap = {
+  'getElementById': initHackSelector('getElementById', originSelectors['getElementById']),
+  'querySelector': initHackSelector('querySelector', originSelectors['querySelector']),
+  'querySelectorAll': initHackSelector('querySelectorAll', originSelectors['querySelectorAll']),
+};
+selectorMap.getElementById();
+selectorMap.querySelector();
+selectorMap.querySelectorAll();
+
+const originAppendChild = HTMLHeadElement.prototype.appendChild;
+const LINK_TAG_NAME = 'LINK';
+const STYLE_TAG_NAME = 'STYLE';
+
+HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, newChild: T) {
+  const element = newChild as any;
+  if (element.tagName) {
+    switch (element.tagName) {
+      case LINK_TAG_NAME:
+      case STYLE_TAG_NAME: {
+        const currentScript = document.currentScript;
+        /** 获取到currentName */
+        const currentName = currentScript?.getAttribute('data-id');
+        if (!currentName) return originAppendChild.call(this, element) as T;
+        setTimeout(() => {
+          getWrapper(currentName)?.shadowRoot?.appendChild(element);
+        })
+        return originAppendChild.call(this, element.cloneNode()) as T;
+      }
+    }
+  }
+  return originAppendChild.call(this, element) as T;
+};
+
+const httpReg = new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i');
+
 export default class VueIframe extends React.PureComponent<IProps, {}> {
   private loadType: IProps['loadType']; // 加载方式 支持ajax和script标签
   private currentName: string; // 每个iframe的name
@@ -61,10 +187,12 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
   private vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
   private vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
   private styleElements: HTMLLinkElement[] | HTMLStyleElement[] = []; // 用来临时存放要被添加的style标签
+  private runId: number = -1; // 当前正在跑的vue组件的runId 唯一
 
   constructor(props: IProps) {
     super(props);
-    const { loadType, jsurl, cssurl, component, name, visible, instable_publicPath } = props;
+    const { loadType, jsurl = '', cssurl, component, name, visible, instable_publicPath } = props;
+    const unique = uniqueId();
     this.loadType = loadType || 'script';
     // 初始化时候是否显示
     this.visible = typeof visible === 'boolean' ? visible : true;
@@ -79,15 +207,13 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
     this.publicPathReg = new RegExp(this.publicPathKey, 'g');
     // 生成每个iframe的唯一表示
-    this.currentName = name || '';
+    this.currentName = name || `${jsurl.replace(httpReg, '')}.${unique}`|| `vue-root-${unique}`;
     // 获取传进来的url的协议+域名+端口
-    this.currentPublicPath = `${(
-      new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(this.currentUrl) || ['']
-    )[0]}/`;
+    this.currentPublicPath = `${(httpReg.exec(this.currentUrl) || [''])[0]}/`;
     // vue会挂载到这个节点2上
     this.vueWrapper2.id = this.currentName;
-    // 初始化一些hack
-    this.initHack();
+    // 把wrapper暂时存到外头
+    getWrapper(this.currentName, this.vueWrapper1);
   }
 
   componentDidMount = async () => {
@@ -95,7 +221,6 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     const rootEleWrapper = this.rootNodeWrapper.current;
     if (!rootEleWrapper) throw Error('没有vue组件的root节点');
     /** 如果外部传了component就随机起个name */
-    (this.props.component && (this.currentName = String(+ new Date())));
     const component = this.props.component || await this.getOriginVueComponent();
     if (!this.isVueComponent(component)) return;
     this.registerComponentAndMount(component);
@@ -124,97 +249,17 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     (this.rootNodeWrapper.current as any).removeChild(this.vueWrapper1);
     this.parcel.unmount();
     this.parcel = null;
-    (this.internalHackSelector as Function)('getElementById', false);
-    (this.internalHackSelector as Function)('querySelector', false);
-    (this.internalHackSelector as Function)('querySelectorAll', false);
+    const allUnmount = toolFunction(this.runId, -1);
+    if (allUnmount) {
+      selectorMap.getElementById(false);
+      selectorMap.querySelector(false);
+      selectorMap.querySelectorAll(false);
+      HTMLHeadElement.prototype.appendChild = originAppendChild;
+    }
     (this.vueWrapper1 as any) = null;
     (this.vueWrapper2 as any) = null;
     (this.rootNodeWrapper as any) = null;
     (this.styleElements as any) = [];
-  }
-
-  private initHack = () => {
-    const originAppendChild = HTMLHeadElement.prototype.appendChild;
-    const s = HTMLDocument.prototype;
-    const selectorMap = {
-      'getElementById': this.initHackSelector('getElementById', s['getElementById']),
-      'querySelector': this.initHackSelector('querySelector', s['querySelector']),
-      'querySelectorAll': this.initHackSelector('querySelectorAll', s['querySelectorAll']),
-    };
-    /**
-     * 被bind过的函数的ts类型不会写...... 要死......
-     */
-    (this.internalHackCSSsandbox as Function) =
-      this.internalHackCSSsandbox.bind(this, originAppendChild);
-    (this.internalHackSelector as Function) =
-      this.internalHackSelector.bind(this, selectorMap);
-  }
-
-  /**
-   * 快被 typescript 搞死了......
-   * 有没有大佬能教教我这块儿应该怎么写ts
-   */
-  private initHackSelector = (
-    name: keyof ISelecotr,
-    originSelectorFn: ((id: string) => HTMLElement | null) |
-      (<E extends Element = Element>(id: string) => NodeListOf<E>) |
-      HTMLCollectionOf<Element>,
-  ) => {
-    return (codeIsExecuting: boolean) => {
-      const HTMLDocumentPrototype = (HTMLDocument.prototype as any);
-      if (!codeIsExecuting) HTMLDocumentPrototype[name] = originSelectorFn;
-      const _this = this;
-      HTMLDocumentPrototype[name] = function <E extends Element = Element>(id: string):
-        HTMLElement | null | NodeListOf<E> {
-        const originEl = (originSelectorFn as any).call(this, id);
-        const shadowEl = _this.vueWrapper1 &&
-          _this.vueWrapper1.shadowRoot &&
-          _this.vueWrapper1.shadowRoot[name] &&
-          typeof _this.vueWrapper1.shadowRoot[name] === 'function' &&
-          (_this.vueWrapper1.shadowRoot as any)[name](id) as HTMLElement | null | NodeListOf<E>;
-        return originEl || (shadowEl || null);
-      }
-    }
-  }
-
-  private internalHackSelector = (
-    selectorMap: { [name: string]: Function },
-    name: keyof ISelecotr,
-    codeIsExecuting: boolean,
-  ) => {
-    selectorMap[name](codeIsExecuting);
-  }
-
-  private internalHackCSSsandbox = (
-    originAppendChild: <T extends Node>(this: any, newChild: T) => T,
-    codeIsExecuting: boolean,
-  ) => {
-    /**
-     * css 沙箱基于shadow dom
-     * 如果浏览器版本不支持shadow dom的话
-     * 可以通过静态检测vue组件render方法的字符串
-     * 动态给每个节点的attrs上注入一个自定义特殊属性的方式
-     * 然后再给每个style文件的innerText的每个选择器加上属性选择
-     * TODO: 比较麻烦 以后再支持吧
-     */
-    if (!this.rootNodeWrapper.current?.attachShadow) return;
-    if (!codeIsExecuting) HTMLHeadElement.prototype.appendChild = originAppendChild;
-    const LINK_TAG_NAME = 'LINK';
-    const STYLE_TAG_NAME = 'STYLE';
-    const _this = this;
-    HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, newChild: T) {
-      const element = newChild as any;
-      if (element.tagName) {
-        switch (element.tagName) {
-          case LINK_TAG_NAME:
-          case STYLE_TAG_NAME: {
-            _this.styleElements.push(element);
-            return originAppendChild.call(this, element.cloneNode()) as T;
-          }
-        }
-      }
-      return originAppendChild.call(this, element) as T;
-    };
   }
 
   private registerComponentAndMount = (component: object): void => {
@@ -237,6 +282,7 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
       oLink.href = cssurl;
       root?.appendChild(oLink);
     }
+
     this.styleElements.forEach(style => {
       root?.appendChild(style);
     });
@@ -301,14 +347,6 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     });
   }
 
-  private getCurrentName = (self: any): string => {
-    for (const props in self) {
-      if (!self.hasOwnProperty(props)) break;
-      if (props !== 'Vue') return props;
-    }
-    return '';
-  }
-
   private executeOriginCode = (code: string): Self => {
     const internalSelf: Self = { Vue };
     const reg = this.publicPathReg;
@@ -354,68 +392,59 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
   private getOriginVueComponent = (): object => {
     if (this.loadType === 'script') {
       return new Promise(res => {
-        /**
-         * script标签没有defer或async的时候
-         * 下载数据以及执行都是同步的
-         */
-        (this.internalHackCSSsandbox as Function)(true);
-        (this.internalHackSelector as Function)('getElementById', true);
-        (this.internalHackSelector as Function)('querySelector', true);
-        (this.internalHackSelector as Function)('querySelectorAll', true);
-        const type = 'text/javascript';
-        const oScript1 = document.createElement('script');
-        oScript1.type = type;
-        const originSelf = window.self;
-        oScript1.innerText = 'window.self = {Vue: null}';
-        document.body.appendChild(oScript1);
-        window.self.Vue = Vue;
-        const oScript2 = document.createElement('script');
-        oScript2.type = type;
-        oScript2.src = this.currentUrl;
-        document.body.appendChild(oScript2);
-        oScript2.onload = () => {
-          (this.internalHackCSSsandbox as Function)(false);
-          const currentSelf: any = window.self;
-          (window as any).self = originSelf;
-          if (!this.currentName) (this.currentName = this.getCurrentName(currentSelf));
-          if (!this.currentName) throw Error('没有获取到vue组件');
-          this.vueWrapper2.id = this.currentName;
-          this.component = currentSelf[this.currentName];
-          oScript1.parentNode?.removeChild(oScript1);
-          oScript2.parentNode?.removeChild(oScript2);
+        const oScript = document.createElement('script');
+        oScript.type = 'text/javascript';
+        oScript.src = this.currentUrl;
+        oScript.setAttribute('data-id', this.currentName);
+        document.body.appendChild(oScript);
+        const runId = this.runId = toolFunction(this.vueWrapper1) as number;
+        (window as any).module = {};
+        (window as any).require = (str: string) => (str === 'vue') && Vue;
+        window.exports = null;
+        oScript.onload = () => {
+          this.component = window.module.exports;
+          toolFunction(runId, false);
+          if (!toolFunction()) {
+            window.module = originModule;
+            window.require = originRequire;
+            window.exports = originExports;
+          }
+          /**
+           * 这里留个口可以用来以后支持esm规范的组件
+           * const temporaryExports = window.exports;
+           * let component = null;
+           * for (const propName in temporaryExports) {
+           * if (!temporaryExports.hasOwnProperty(propName)) continue;
+           *   component = temporaryExports[propName]
+           *   delete temporaryExports[propName];
+           * }
+           */
+          oScript.remove();
           res(this.component);
         };
       });
     } else {
-      return new Promise(res => {
-        this.getOriginCode(this.currentUrl).then(data => {
-          /**
-           * 通过XMLHttpRequest获取源代码
-           */
-          if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
-          (this.internalHackCSSsandbox as Function)(true);
-          (this.internalHackSelector as Function)('getElementById', true);
-          (this.internalHackSelector as Function)('querySelector', true);
-          (this.internalHackSelector as Function)('querySelectorAll', true);
-          const internalSelf = this.executeOriginCode(data);
-          (this.internalHackCSSsandbox as Function)(false);
-          if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
-          if (!this.currentName) throw Error('没有获取到vue组件');
-          this.vueWrapper2.id = this.currentName;
-          this.component = internalSelf[this.currentName];
-          res(this.component);
-        }).catch(err => {
-          /**
-           * 如果进入到这里说明可能请求出错了
-           */
-          console.warn('远程vue组件请求可能出现跨域或其他网络问题');
-          /**
-           * 如果出现跨域问题就强制使用script方式加载一遍
-           */
-          this.loadType = 'script';
-          res(this.getOriginVueComponent());
-        })
-      })
+      console.warn('暂时关闭xhr的加载方式, 将使用script方式加载')
+      this.loadType = 'script';
+      return new Promise(res => res(this.getOriginVueComponent()));
+      // return new Promise(res => {
+      //   this.getOriginCode(this.currentUrl).then(data => {
+      //     /** 通过XMLHttpRequest获取源代码 */
+      //     if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+      //     const internalSelf = this.executeOriginCode(data);
+      //     if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
+      //     if (!this.currentName) throw Error('没有获取到vue组件');
+      //     this.vueWrapper2.id = this.currentName;
+      //     this.component = internalSelf[this.currentName];
+      //     res(this.component);
+      //   }).catch(err => {
+      //     /** 如果进入到这里说明可能请求出错了 */
+      //     console.warn('远程vue组件请求可能出现跨域或其他网络问题');
+      //     /** 如果出现跨域问题就强制使用script方式加载一遍 */
+      //     this.loadType = 'script';
+      //     res(this.getOriginVueComponent());
+      //   });
+      // });
     } 
   }
 

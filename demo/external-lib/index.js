@@ -2,6 +2,7 @@ import React from 'react';
 import Vue from 'vue';
 import { mountRootParcel } from 'single-spa';
 import singleSpaVue from 'single-spa-vue';
+import uniqueId from 'lodash/uniqueId';
 
 function _typeof(obj) {
   "@babel/helpers - typeof";
@@ -104,6 +105,133 @@ Vue.prototype._init = function (options) {
    */
   __VUE_INTERNAL_INIT__.call(this, options);
 };
+/**
+ * toolFunction()的时候会返回一个boolean 表示当前是否有vue代码正在运行
+ * toolFunction(-1)的时候会返回所有的ele
+ * toolFunction(element)的时候表示这个元素对应的vue组件代码正在运行
+ * toolFunction(number)的时候表示要获取这个id对应的element
+ * toolFunction(number, false)表示把这个id对应的状态设置为false
+ * toolFunction(number, -1)表示把这个id对应的删除并返回是否所有的都unmount了
+ *
+ * 1. 啥也不传返回obj里所有属性对应的对象的status属性是否起码有一个为true
+ * 2. 只传一个参数并且是-1的时候把所有的ele返回
+ * 3. 只传一个参数并且是divElement的话就往obj添加一个对象同时返回runId
+ * 4. 只传一个参数并且是number类型的话, 就返回这个runId对应divElement
+ * 5. 传俩参数并且第一个是number, 第二个是false的话就把这个id对应的对象status改为false
+ * 6. 传进来俩参数第一个是number, 第二个是-1的话, 就把这个id对应的删除
+ */
+
+
+var toolFunction = function (obj, id) {
+  return function (a, b) {
+    var length = arguments.length;
+
+    if (!length) {
+      if (!Object.keys(obj).length) return false;
+      return Object.values(obj).some(function (item) {
+        return item.running;
+      });
+    } else if (length === 1 && a === -1) {
+      return Object.values(obj).map(function (item) {
+        return item.ele;
+      });
+    } else if (length === 1 && a instanceof HTMLElement) {
+      obj[id++] = {
+        running: true,
+        ele: a
+      };
+      return id - 1;
+    } else if (length === 1 && typeof a === 'number') {
+      return obj[a].ele;
+    } else if (length === 2 && typeof a === 'number' && b === false) {
+      obj[a].running = false;
+      return obj[a].ele;
+    } else if (length === 2 && typeof a === 'number' && b === -1) {
+      delete obj[a];
+      return !Object.keys(obj).length;
+    }
+
+    throw Error('传参有问题');
+  };
+}({}, 0);
+
+var getWrapper = function (obj) {
+  return function (name, ele) {
+    if (name && ele) obj[name] = ele;else if (name && !ele) return obj[name];
+  };
+}({});
+
+var originSelectors = HTMLDocument.prototype;
+
+var initHackSelector = function initHackSelector(name, originSelectorFn) {
+  return function (cancelHack) {
+    var HTMLDocumentPrototype = HTMLDocument.prototype;
+    if (cancelHack) return HTMLDocumentPrototype[name] = originSelectorFn;
+
+    HTMLDocumentPrototype[name] = function (id) {
+      var originEl = originSelectorFn.call(this, id);
+      if (originEl) return originEl;
+
+      if (!originEl) {
+        var allShadowRoot = toolFunction(-1);
+        var len = allShadowRoot.length;
+
+        for (var i = 0; i < len; i++) {
+          var wrapper = allShadowRoot[i];
+          var shadowEl = wrapper && wrapper.shadowRoot && wrapper.shadowRoot[name] && typeof wrapper.shadowRoot[name] === 'function' && wrapper.shadowRoot[name](id);
+          if (shadowEl) return shadowEl;
+        }
+      }
+
+      return null;
+    };
+  };
+};
+
+var originModule = window.module;
+var originRequire = window.require;
+var originExports = window.exports;
+var selectorMap = {
+  'getElementById': initHackSelector('getElementById', originSelectors['getElementById']),
+  'querySelector': initHackSelector('querySelector', originSelectors['querySelector']),
+  'querySelectorAll': initHackSelector('querySelectorAll', originSelectors['querySelectorAll'])
+};
+selectorMap.getElementById();
+selectorMap.querySelector();
+selectorMap.querySelectorAll();
+var originAppendChild = HTMLHeadElement.prototype.appendChild;
+var LINK_TAG_NAME = 'LINK';
+var STYLE_TAG_NAME = 'STYLE';
+
+HTMLHeadElement.prototype.appendChild = function (newChild) {
+  var _a;
+
+  var element = newChild;
+
+  if (element.tagName) {
+    switch (element.tagName) {
+      case LINK_TAG_NAME:
+      case STYLE_TAG_NAME:
+        {
+          var currentScript = document.currentScript;
+          /** 获取到currentName */
+
+          var currentName_1 = (_a = currentScript) === null || _a === void 0 ? void 0 : _a.getAttribute('data-id');
+          if (!currentName_1) return originAppendChild.call(this, element);
+          setTimeout(function () {
+            var _a, _b;
+
+            (_b = (_a = getWrapper(currentName_1)) === null || _a === void 0 ? void 0 : _a.shadowRoot) === null || _b === void 0 ? void 0 : _b.appendChild(element);
+          });
+          return originAppendChild.call(this, element.cloneNode());
+        }
+    }
+  }
+
+  return originAppendChild.call(this, element);
+};
+
+var httpReg = new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i');
 
 var VueIframe =
 /** @class */
@@ -111,18 +239,20 @@ function (_super) {
   __extends(VueIframe, _super);
 
   function VueIframe(props) {
-    var _this_1 = _super.call(this, props) || this;
+    var _this = _super.call(this, props) || this;
 
-    _this_1.rootNodeWrapper = React.createRef(); // vue挂载节点是根据el再往上找它的爹
+    _this.rootNodeWrapper = React.createRef(); // vue挂载节点是根据el再往上找它的爹
 
-    _this_1.vueWrapper1 = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
+    _this.vueWrapper1 = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
 
-    _this_1.vueWrapper2 = document.createElement('div'); // 真正vue需要挂载的节点
+    _this.vueWrapper2 = document.createElement('div'); // 真正vue需要挂载的节点
 
-    _this_1.styleElements = []; // 用来临时存放要被添加的style标签
+    _this.styleElements = []; // 用来临时存放要被添加的style标签
 
-    _this_1.componentDidMount = function () {
-      return __awaiter(_this_1, void 0, void 0, function () {
+    _this.runId = -1; // 当前正在跑的vue组件的runId 唯一
+
+    _this.componentDidMount = function () {
+      return __awaiter(_this, void 0, void 0, function () {
         var rootEleWrapper, component, _a;
 
         return __generator(this, function (_b) {
@@ -131,9 +261,6 @@ function (_super) {
               if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
               rootEleWrapper = this.rootNodeWrapper.current;
               if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-              /** 如果外部传了component就随机起个name */
-
-              this.props.component && (this.currentName = String(+new Date()));
               _a = this.props.component;
               if (_a) return [3
               /*break*/
@@ -161,19 +288,19 @@ function (_super) {
       });
     };
 
-    _this_1.componentDidUpdate = function () {
+    _this.componentDidUpdate = function () {
       var _a, _b;
 
-      var _c = _this_1.props.visible,
+      var _c = _this.props.visible,
           visible = _c === void 0 ? true : _c;
-      if (visible === _this_1.visible) return;
-      _this_1.visible = visible;
-      var rootNodeWrapper = _this_1.rootNodeWrapper.current;
+      if (visible === _this.visible) return;
+      _this.visible = visible;
+      var rootNodeWrapper = _this.rootNodeWrapper.current;
 
       if (!visible) {
-        _this_1.vueWrapper1 = (_a = rootNodeWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this_1.vueWrapper1);
+        _this.vueWrapper1 = (_a = rootNodeWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this.vueWrapper1);
       } else {
-        (_b = rootNodeWrapper) === null || _b === void 0 ? void 0 : _b.appendChild(_this_1.vueWrapper1);
+        (_b = rootNodeWrapper) === null || _b === void 0 ? void 0 : _b.appendChild(_this.vueWrapper1);
       }
     };
     /**
@@ -184,122 +311,46 @@ function (_super) {
      */
 
 
-    _this_1.componentWillUnmount = function () {
-      _this_1.rootNodeWrapper.current.removeChild(_this_1.vueWrapper1);
+    _this.componentWillUnmount = function () {
+      _this.rootNodeWrapper.current.removeChild(_this.vueWrapper1);
 
-      _this_1.parcel.unmount();
+      _this.parcel.unmount();
 
-      _this_1.parcel = null;
+      _this.parcel = null;
+      var allUnmount = toolFunction(_this.runId, -1);
 
-      _this_1.internalHackSelector('getElementById', false);
+      if (allUnmount) {
+        selectorMap.getElementById(false);
+        selectorMap.querySelector(false);
+        selectorMap.querySelectorAll(false);
+        HTMLHeadElement.prototype.appendChild = originAppendChild;
+      }
 
-      _this_1.internalHackSelector('querySelector', false);
-
-      _this_1.internalHackSelector('querySelectorAll', false);
-
-      _this_1.vueWrapper1 = null;
-      _this_1.vueWrapper2 = null;
-      _this_1.rootNodeWrapper = null;
-      _this_1.styleElements = [];
+      _this.vueWrapper1 = null;
+      _this.vueWrapper2 = null;
+      _this.rootNodeWrapper = null;
+      _this.styleElements = [];
     };
 
-    _this_1.initHack = function () {
-      var originAppendChild = HTMLHeadElement.prototype.appendChild;
-      var s = HTMLDocument.prototype;
-      var selectorMap = {
-        'getElementById': _this_1.initHackSelector('getElementById', s['getElementById']),
-        'querySelector': _this_1.initHackSelector('querySelector', s['querySelector']),
-        'querySelectorAll': _this_1.initHackSelector('querySelectorAll', s['querySelectorAll'])
-      };
-      /**
-       * 被bind过的函数的ts类型不会写...... 要死......
-       */
+    _this.registerComponentAndMount = function (component) {
+      var lifecycles = _this.registerVueComponent(_this.vueWrapper2, component, _this.currentName);
 
-      _this_1.internalHackCSSsandbox = _this_1.internalHackCSSsandbox.bind(_this_1, originAppendChild);
-      _this_1.internalHackSelector = _this_1.internalHackSelector.bind(_this_1, selectorMap);
-    };
-    /**
-     * 快被 typescript 搞死了......
-     * 有没有大佬能教教我这块儿应该怎么写ts
-     */
-
-
-    _this_1.initHackSelector = function (name, originSelectorFn) {
-      return function (codeIsExecuting) {
-        var HTMLDocumentPrototype = HTMLDocument.prototype;
-        if (!codeIsExecuting) HTMLDocumentPrototype[name] = originSelectorFn;
-        var _this = _this_1;
-
-        HTMLDocumentPrototype[name] = function (id) {
-          var originEl = originSelectorFn.call(this, id);
-
-          var shadowEl = _this.vueWrapper1 && _this.vueWrapper1.shadowRoot && _this.vueWrapper1.shadowRoot[name] && typeof _this.vueWrapper1.shadowRoot[name] === 'function' && _this.vueWrapper1.shadowRoot[name](id);
-
-          return originEl || shadowEl || null;
-        };
-      };
-    };
-
-    _this_1.internalHackSelector = function (selectorMap, name, codeIsExecuting) {
-      selectorMap[name](codeIsExecuting);
-    };
-
-    _this_1.internalHackCSSsandbox = function (originAppendChild, codeIsExecuting) {
-      var _a;
-      /**
-       * css 沙箱基于shadow dom
-       * 如果浏览器版本不支持shadow dom的话
-       * 可以通过静态检测vue组件render方法的字符串
-       * 动态给每个节点的attrs上注入一个自定义特殊属性的方式
-       * 然后再给每个style文件的innerText的每个选择器加上属性选择
-       * TODO: 比较麻烦 以后再支持吧
-       */
-
-
-      if (!((_a = _this_1.rootNodeWrapper.current) === null || _a === void 0 ? void 0 : _a.attachShadow)) return;
-      if (!codeIsExecuting) HTMLHeadElement.prototype.appendChild = originAppendChild;
-      var LINK_TAG_NAME = 'LINK';
-      var STYLE_TAG_NAME = 'STYLE';
-      var _this = _this_1;
-
-      HTMLHeadElement.prototype.appendChild = function (newChild) {
-        var element = newChild;
-
-        if (element.tagName) {
-          switch (element.tagName) {
-            case LINK_TAG_NAME:
-            case STYLE_TAG_NAME:
-              {
-                _this.styleElements.push(element);
-
-                return originAppendChild.call(this, element.cloneNode());
-              }
-          }
-        }
-
-        return originAppendChild.call(this, element);
-      };
-    };
-
-    _this_1.registerComponentAndMount = function (component) {
-      var lifecycles = _this_1.registerVueComponent(_this_1.vueWrapper2, component, _this_1.currentName);
-
-      _this_1.parcel = mountRootParcel(lifecycles, {
+      _this.parcel = mountRootParcel(lifecycles, {
         domElement: '-'
       });
     };
 
-    _this_1.addComponentToPage = function (rootEleWrapper) {
+    _this.addComponentToPage = function (rootEleWrapper) {
       var _a, _b;
       /** 如果visible是false就暂时先把display置为none 之后再remove */
 
 
-      if (!_this_1.visible) _this_1.vueWrapper1.style.display = 'none';
-      var supportShadowDOM = !!_this_1.vueWrapper1.attachShadow;
-      var root = supportShadowDOM ? _this_1.vueWrapper1.attachShadow({
+      if (!_this.visible) _this.vueWrapper1.style.display = 'none';
+      var supportShadowDOM = !!_this.vueWrapper1.attachShadow;
+      var root = supportShadowDOM ? _this.vueWrapper1.attachShadow({
         mode: 'open'
-      }) && _this_1.vueWrapper1.shadowRoot : _this_1.vueWrapper1;
-      var cssurl = _this_1.currentCSSUrl;
+      }) && _this.vueWrapper1.shadowRoot : _this.vueWrapper1;
+      var cssurl = _this.currentCSSUrl;
 
       if (cssurl) {
         var oLink = document.createElement('link');
@@ -308,14 +359,14 @@ function (_super) {
         (_a = root) === null || _a === void 0 ? void 0 : _a.appendChild(oLink);
       }
 
-      _this_1.styleElements.forEach(function (style) {
+      _this.styleElements.forEach(function (style) {
         var _a;
 
         (_a = root) === null || _a === void 0 ? void 0 : _a.appendChild(style);
       });
 
-      (_b = root) === null || _b === void 0 ? void 0 : _b.appendChild(_this_1.vueWrapper2);
-      rootEleWrapper.appendChild(_this_1.vueWrapper1);
+      (_b = root) === null || _b === void 0 ? void 0 : _b.appendChild(_this.vueWrapper2);
+      rootEleWrapper.appendChild(_this.vueWrapper1);
       setTimeout(function () {
         var _a;
         /**
@@ -329,15 +380,15 @@ function (_super) {
          */
 
 
-        if (!_this_1.visible) {
-          _this_1.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this_1.vueWrapper1);
+        if (!_this.visible) {
+          _this.vueWrapper1 = (_a = rootEleWrapper) === null || _a === void 0 ? void 0 : _a.removeChild(_this.vueWrapper1);
         }
 
-        _this_1.vueWrapper1.style.display = 'block';
+        _this.vueWrapper1.style.display = 'block';
       });
     };
 
-    _this_1.registerVueComponent = function (el, vueComponent, id) {
+    _this.registerVueComponent = function (el, vueComponent, id) {
       var vueInstance = singleSpaVue({
         Vue: Vue,
         appOptions: {
@@ -348,7 +399,7 @@ function (_super) {
                 id: id
               }
             }, [h(vueComponent, {
-              props: __assign({}, _this_1.props.extraProps)
+              props: __assign({}, _this.props.extraProps)
             })]);
           }
         }
@@ -360,11 +411,11 @@ function (_super) {
       };
     };
 
-    _this_1.isVueComponent = function (component) {
+    _this.isVueComponent = function (component) {
       return component && _typeof(component) === 'object' && typeof component.render === 'function';
     };
 
-    _this_1.getOriginCode = function (url, method, data) {
+    _this.getOriginCode = function (url, method, data) {
       if (method === void 0) {
         method = 'GET';
       }
@@ -389,22 +440,13 @@ function (_super) {
       });
     };
 
-    _this_1.getCurrentName = function (self) {
-      for (var props in self) {
-        if (!self.hasOwnProperty(props)) break;
-        if (props !== 'Vue') return props;
-      }
-
-      return '';
-    };
-
-    _this_1.executeOriginCode = function (code) {
+    _this.executeOriginCode = function (code) {
       var internalSelf = {
         Vue: Vue
       };
-      var reg = _this_1.publicPathReg;
-      var publicPath = _this_1.currentPublicPath;
-      var url = _this_1.currentUrl;
+      var reg = _this.publicPathReg;
+      var publicPath = _this.currentPublicPath;
+      var url = _this.currentUrl;
 
       if (reg.test(code)) {
         /**
@@ -443,127 +485,112 @@ function (_super) {
       return internalSelf;
     };
 
-    _this_1.getOriginVueComponent = function () {
-      if (_this_1.loadType === 'script') {
+    _this.getOriginVueComponent = function () {
+      if (_this.loadType === 'script') {
         return new Promise(function (res) {
-          /**
-           * script标签没有defer或async的时候
-           * 下载数据以及执行都是同步的
-           */
-          _this_1.internalHackCSSsandbox(true);
+          var oScript = document.createElement('script');
+          oScript.type = 'text/javascript';
+          oScript.src = _this.currentUrl;
+          oScript.setAttribute('data-id', _this.currentName);
+          document.body.appendChild(oScript);
+          var runId = _this.runId = toolFunction(_this.vueWrapper1);
+          window.module = {};
 
-          _this_1.internalHackSelector('getElementById', true);
+          window.require = function (str) {
+            return str === 'vue' && Vue;
+          };
 
-          _this_1.internalHackSelector('querySelector', true);
+          window.exports = null;
 
-          _this_1.internalHackSelector('querySelectorAll', true);
+          oScript.onload = function () {
+            _this.component = window.module.exports;
+            toolFunction(runId, false);
 
-          var type = 'text/javascript';
-          var oScript1 = document.createElement('script');
-          oScript1.type = type;
-          var originSelf = window.self;
-          oScript1.innerText = 'window.self = {Vue: null}';
-          document.body.appendChild(oScript1);
-          window.self.Vue = Vue;
-          var oScript2 = document.createElement('script');
-          oScript2.type = type;
-          oScript2.src = _this_1.currentUrl;
-          document.body.appendChild(oScript2);
+            if (!toolFunction()) {
+              window.module = originModule;
+              window.require = originRequire;
+              window.exports = originExports;
+            }
+            /**
+             * 这里留个口可以用来以后支持esm规范的组件
+             * const temporaryExports = window.exports;
+             * let component = null;
+             * for (const propName in temporaryExports) {
+             * if (!temporaryExports.hasOwnProperty(propName)) continue;
+             *   component = temporaryExports[propName]
+             *   delete temporaryExports[propName];
+             * }
+             */
 
-          oScript2.onload = function () {
-            var _a, _b;
 
-            _this_1.internalHackCSSsandbox(false);
-
-            var currentSelf = window.self;
-            window.self = originSelf;
-            if (!_this_1.currentName) _this_1.currentName = _this_1.getCurrentName(currentSelf);
-            if (!_this_1.currentName) throw Error('没有获取到vue组件');
-            _this_1.vueWrapper2.id = _this_1.currentName;
-            _this_1.component = currentSelf[_this_1.currentName];
-            (_a = oScript1.parentNode) === null || _a === void 0 ? void 0 : _a.removeChild(oScript1);
-            (_b = oScript2.parentNode) === null || _b === void 0 ? void 0 : _b.removeChild(oScript2);
-            res(_this_1.component);
+            oScript.remove();
+            res(_this.component);
           };
         });
       } else {
+        console.warn('暂时关闭xhr的加载方式, 将使用script方式加载');
+        _this.loadType = 'script';
         return new Promise(function (res) {
-          _this_1.getOriginCode(_this_1.currentUrl).then(function (data) {
-            /**
-             * 通过XMLHttpRequest获取源代码
-             */
-            if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
-
-            _this_1.internalHackCSSsandbox(true);
-
-            _this_1.internalHackSelector('getElementById', true);
-
-            _this_1.internalHackSelector('querySelector', true);
-
-            _this_1.internalHackSelector('querySelectorAll', true);
-
-            var internalSelf = _this_1.executeOriginCode(data);
-
-            _this_1.internalHackCSSsandbox(false);
-
-            if (!_this_1.currentName) _this_1.currentName = _this_1.getCurrentName(internalSelf);
-            if (!_this_1.currentName) throw Error('没有获取到vue组件');
-            _this_1.vueWrapper2.id = _this_1.currentName;
-            _this_1.component = internalSelf[_this_1.currentName];
-            res(_this_1.component);
-          }).catch(function (err) {
-            /**
-             * 如果进入到这里说明可能请求出错了
-             */
-            console.warn('远程vue组件请求可能出现跨域或其他网络问题');
-            /**
-             * 如果出现跨域问题就强制使用script方式加载一遍
-             */
-
-            _this_1.loadType = 'script';
-            res(_this_1.getOriginVueComponent());
-          });
-        });
+          return res(_this.getOriginVueComponent());
+        }); // return new Promise(res => {
+        //   this.getOriginCode(this.currentUrl).then(data => {
+        //     /** 通过XMLHttpRequest获取源代码 */
+        //     if (!data || typeof data !== 'string') throw Error('没有加载到远程vue组件');
+        //     const internalSelf = this.executeOriginCode(data);
+        //     if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
+        //     if (!this.currentName) throw Error('没有获取到vue组件');
+        //     this.vueWrapper2.id = this.currentName;
+        //     this.component = internalSelf[this.currentName];
+        //     res(this.component);
+        //   }).catch(err => {
+        //     /** 如果进入到这里说明可能请求出错了 */
+        //     console.warn('远程vue组件请求可能出现跨域或其他网络问题');
+        //     /** 如果出现跨域问题就强制使用script方式加载一遍 */
+        //     this.loadType = 'script';
+        //     res(this.getOriginVueComponent());
+        //   });
+        // });
       }
     };
 
-    _this_1.render = function () {
+    _this.render = function () {
       return React.createElement("div", {
-        id: _this_1.props.id || '',
-        ref: _this_1.rootNodeWrapper
+        id: _this.props.id || '',
+        ref: _this.rootNodeWrapper
       });
     };
 
     var loadType = props.loadType,
-        jsurl = props.jsurl,
+        _a = props.jsurl,
+        jsurl = _a === void 0 ? '' : _a,
         cssurl = props.cssurl,
         component = props.component,
         name = props.name,
         visible = props.visible,
         instable_publicPath = props.instable_publicPath;
-    _this_1.loadType = loadType || 'script'; // 初始化时候是否显示
+    var unique = uniqueId();
+    _this.loadType = loadType || 'script'; // 初始化时候是否显示
 
-    _this_1.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
+    _this.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
 
-    _this_1.component = component; // 获取到外部传来的url
+    _this.component = component; // 获取到外部传来的url
 
-    _this_1.currentUrl = jsurl || ''; // 获取外部传进来的css的url 可能没有
+    _this.currentUrl = jsurl || ''; // 获取外部传进来的css的url 可能没有
 
-    _this_1.currentCSSUrl = cssurl || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
+    _this.currentCSSUrl = cssurl || ''; // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
 
-    _this_1.publicPathKey = instable_publicPath || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
+    _this.publicPathKey = instable_publicPath || '__WILL_BE_REPLACED_PUBLIC_PATH__'; // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
 
-    _this_1.publicPathReg = new RegExp(_this_1.publicPathKey, 'g'); // 生成每个iframe的唯一表示
+    _this.publicPathReg = new RegExp(_this.publicPathKey, 'g'); // 生成每个iframe的唯一表示
 
-    _this_1.currentName = name || ''; // 获取传进来的url的协议+域名+端口
+    _this.currentName = name || jsurl.replace(httpReg, '') + "." + unique || "vue-root-" + unique; // 获取传进来的url的协议+域名+端口
 
-    _this_1.currentPublicPath = (new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i').exec(_this_1.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
+    _this.currentPublicPath = (httpReg.exec(_this.currentUrl) || [''])[0] + "/"; // vue会挂载到这个节点2上
 
-    _this_1.vueWrapper2.id = _this_1.currentName; // 初始化一些hack
+    _this.vueWrapper2.id = _this.currentName; // 把wrapper暂时存到外头
 
-    _this_1.initHack();
-
-    return _this_1;
+    getWrapper(_this.currentName, _this.vueWrapper1);
+    return _this;
   }
 
   return VueIframe;

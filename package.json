@@ -1,12 +1,12 @@
 {
   "name": "react-vue-mirco-frame",
-  "version": "0.0.7",
+  "version": "0.0.9",
   "description": "react-vue-mirco-frame",
   "main": "lib/index.js",
   "scripts": {
     "start": "concurrently \"npm run start:demo\" \"npm run start:rollup\" \"node ./mock-component/server.js\"",
     "start:rollup": "NODE_ENV=development rollup --config ./config/rollup/rollup.dev.conf.js -w",
-    "start:demo": "node_modules/.bin/webpack-dev-server --config config/webpack/webpack.config.js",
+    "start:demo": "node_modules/.bin/webpack-dev-server --config config/webpack/webpack.config.js --open",
     "start2": "NODE_ENV=development rollup --config ./config/rollup.dev.conf.js -w && livereload 'src/' ",
     "build": "NODE_ENV=production rollup --config ./config/rollup/rollup.prod.conf.js",
     "test": "jest --config",
@@ -62,6 +62,7 @@
     "webpack-dev-server": "^3.10.3"
   },
   "dependencies": {
+    "@types/lodash": "^4.14.149",
     "@types/react": "^16.9.19",
     "@types/react-dom": "^16.9.5",
     "babel-runtime": "^6.26.0",
