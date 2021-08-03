@@ -1,21 +1,7 @@
 import React, { RefObject } from 'react';
-import Vue from 'vue';
 import { mountRootParcel, ParcelConfig } from 'single-spa';
-import singleSpaVue from 'single-spa-vue';
 import uniqueId from 'lodash/uniqueId';
-
-const __VUE_INTERNAL_INIT__ = Vue.prototype._init;
-Vue.prototype._init = function(options: any) {
-  /**
-   * TODO: 留个口儿 用来以后支持加载整个Vue应用
-   */
-  __VUE_INTERNAL_INIT__.call(this, options);
-};
-
-interface Self {
-  Vue: typeof Vue;
-  [ propName: string ]: any;
-}
+import equal from 'lodash/eq';
 
 interface IProps0 {
   cssurl?: string;
@@ -37,7 +23,7 @@ interface IProps2 extends IProps0 {
   jsurl?: string; 
 }
 
-type IProps = IProps1 | IProps2;
+export type IProps = IProps1 | IProps2;
 type RefType = RefObject<HTMLDivElement>;
 
 
@@ -46,6 +32,8 @@ interface ISelecotr {
   'querySelector': ParentNode;
   'querySelectorAll': ParentNode;
 }
+
+type LifecyclesProp = (singleSpaProps: object) => Promise<any>;
 
 /**
  * toolFunction()的时候会返回一个boolean 表示当前是否有vue代码正在运行
@@ -162,8 +150,7 @@ HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, new
         if (!currentName) return originAppendChild.call(this, element) as T;
         setTimeout(() => {
           getWrapper(currentName)?.shadowRoot?.appendChild(element);
-        })
-        return originAppendChild.call(this, element.cloneNode()) as T;
+        });
       }
     }
   }
@@ -172,44 +159,45 @@ HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, new
 
 const httpReg = new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i');
 
-export default class VueIframe extends React.PureComponent<IProps, {}> {
-  private loadType: IProps['loadType']; // 加载方式 支持ajax和script标签
-  private currentName: string; // 每个iframe的name
-  private visible: boolean; // 是否显示
-  private currentUrl: string; // 传进来的url
-  private currentCSSUrl: string; // 传进来的cssurl
-  private currentPublicPath: string; // 传进来的url的协议+域名+端口
-  private publicPathKey: string; // 远程源代码中要被替换的关键字
-  private publicPathReg: RegExp; // 用来替换源代码中关键字的正则
-  private rootNodeWrapper: RefType = React.createRef<HTMLDivElement>(); // vue挂载节点是根据el再往上找它的爹
-  private component: any; // vue 组件实例
-  private parcel: any; // parcel实例
-  private vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
-  private vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
-  private styleElements: HTMLLinkElement[] | HTMLStyleElement[] = []; // 用来临时存放要被添加的style标签
-  private runId: number = -1; // 当前正在跑的vue组件的runId 唯一
+export default abstract class VueIframe extends React.PureComponent<IProps, {}> {
+  abstract framework: any; // 组件的框架
+  abstract currentUrl: string; // 传进来的url
+  abstract component: any; // vue 组件实例
+  abstract currentPublicPath: string; // 传进来的url的协议+域名+端口
+  protected loadType: IProps['loadType']; // 加载方式 支持ajax和script标签
+  protected currentName: string; // 每个iframe的name
+  protected visible: boolean; // 是否显示
+  protected currentCSSUrl: string; // 传进来的cssurl
+  protected publicPathKey: string; // 远程源代码中要被替换的关键字
+  protected publicPathReg: RegExp; // 用来替换源代码中关键字的正则
+  protected rootNodeWrapper: RefType = React.createRef<HTMLDivElement>(); // vue挂载节点是根据el再往上找它的爹
+  protected parcel: any; // parcel实例
+  protected vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
+  protected vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
+  protected styleElements: HTMLLinkElement[] | HTMLStyleElement[] = []; // 用来临时存放要被添加的style标签
+  protected runId: number = -1; // 当前正在跑的vue组件的runId 唯一
+  protected isLocal: boolean; // 是否是本地组件
+  protected extraProps: any; // 额外的属性
 
   constructor(props: IProps) {
     super(props);
-    const { loadType, jsurl = '', cssurl, component, name, visible, instable_publicPath } = props;
+    const { loadType, jsurl: url, cssurl, component, name, visible, extraProps } = props;
     const unique = uniqueId();
     this.loadType = loadType || 'script';
     // 初始化时候是否显示
     this.visible = typeof visible === 'boolean' ? visible : true;
-    // 获取到外部传进来的vue组件
-    this.component = component;
-    // 获取到外部传来的url
-    this.currentUrl = jsurl || '';
+    // 判断是否是本地组件
+    this.isLocal = !!component;
+    // 获取额外的属性
+    this.extraProps = extraProps || {};
     // 获取外部传进来的css的url 可能没有
     this.currentCSSUrl = cssurl || '';
     // 这个属性是用来标识要替换远程源代码中的publicPath的关键字
-    this.publicPathKey = instable_publicPath || '__WILL_BE_REPLACED_PUBLIC_PATH__';
+    this.publicPathKey = props.instable_publicPath || '__WILL_BE_REPLACED_PUBLIC_PATH__';
     // 这个正则会用来把远程源码中的__webpack_require__.p = 'xxxxx' 的xxxxx这个publiPath给替换掉
     this.publicPathReg = new RegExp(this.publicPathKey, 'g');
     // 生成每个iframe的唯一表示
-    this.currentName = name || `${jsurl.replace(httpReg, '')}.${unique}`|| `vue-root-${unique}`;
-    // 获取传进来的url的协议+域名+端口
-    this.currentPublicPath = `${(httpReg.exec(this.currentUrl) || [''])[0]}/`;
+    this.currentName = name || (url ? `${url.replace(httpReg, '')}.${unique}` : `root-${unique}`);
     // vue会挂载到这个节点2上
     this.vueWrapper2.id = this.currentName;
     // 把wrapper暂时存到外头
@@ -219,23 +207,33 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
   componentDidMount = async () => {
     if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
     const rootEleWrapper = this.rootNodeWrapper.current;
-    if (!rootEleWrapper) throw Error('没有vue组件的root节点');
+    if (!rootEleWrapper) throw Error('没有组件的root节点');
     /** 如果外部传了component就随机起个name */
-    const component = this.props.component || await this.getOriginVueComponent();
-    if (!this.isVueComponent(component)) return;
+    const component = this.isLocal ? this.component : await this.getOriginComponent();
+    (window as any)._test = component
+    if (!this.isComponent(component)) return;
     this.registerComponentAndMount(component);
-    this.addComponentToPage(rootEleWrapper);
+    this.addComponentToPage(rootEleWrapper, this.isLocal);
   }
 
   componentDidUpdate = () => {
-    const { visible = true } = this.props; 
-    if (visible === this.visible) return;
-    this.visible = visible;
-    const rootNodeWrapper = this.rootNodeWrapper.current;
-    if (!visible) {
-      this.vueWrapper1 = rootNodeWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
-    } else {
-      rootNodeWrapper?.appendChild(this.vueWrapper1);
+    const { visible = true, extraProps } = this.props; 
+    if (!(visible === this.visible)) {
+      this.visible = visible;
+      const rootNodeWrapper = this.rootNodeWrapper.current;
+      if (!visible) {
+        if (rootNodeWrapper?.contains(this.vueWrapper1)) {
+          this.vueWrapper1 = rootNodeWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
+        } else {
+          console.warn('无法卸载该组件, 发生错误的原因可能是没有加载到该组件');
+        }
+      } else {
+        rootNodeWrapper?.appendChild(this.vueWrapper1);
+      }
+    }
+    if (!equal(extraProps, this.extraProps)) {
+      this.extraProps = { ...extraProps };
+      this.parcel.update(extraProps);
     }
   }
 
@@ -246,7 +244,11 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
    * 这个时候应该确认下项目是否还正常运行(八成报错)
    */
   componentWillUnmount = () => {
-    (this.rootNodeWrapper.current as any).removeChild(this.vueWrapper1);
+    if (this.rootNodeWrapper.current?.contains(this.vueWrapper1)) {
+      (this.rootNodeWrapper.current as any).removeChild(this.vueWrapper1);
+    } else {
+      console.warn('无法卸载该组件, 发生错误的原因可能是没有加载到该组件');
+    }
     this.parcel.unmount();
     this.parcel = null;
     const allUnmount = toolFunction(this.runId, -1);
@@ -262,15 +264,23 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     (this.styleElements as any) = [];
   }
 
-  private registerComponentAndMount = (component: object): void => {
-    const lifecycles = this.registerVueComponent(this.vueWrapper2, component, this.currentName);
-    this.parcel = mountRootParcel((lifecycles as ParcelConfig), { domElement: '-' });
+  protected getDom = (): string | HTMLDivElement => '-';
+
+  protected registerComponentAndMount = (component: object): void => {
+    const lifecycles = this.registerComponent(this.vueWrapper2, component, this.currentName);
+    this.parcel = mountRootParcel(
+      (lifecycles as ParcelConfig),
+      {
+        domElement: this.getDom(),
+        ...this.extraProps,
+      }
+    );
   }
 
-  private addComponentToPage = (rootEleWrapper: HTMLDivElement): void => {
+  protected addComponentToPage = (rootEleWrapper: HTMLDivElement, isLocal?: boolean): void => {
     /** 如果visible是false就暂时先把display置为none 之后再remove */
     if (!this.visible) this.vueWrapper1.style.display = 'none';
-    const supportShadowDOM = !!this.vueWrapper1.attachShadow;
+    const supportShadowDOM = !!this.vueWrapper1.attachShadow && !isLocal;
     const root = supportShadowDOM ? (
       (this.vueWrapper1.attachShadow({ mode: 'open' })) &&
       this.vueWrapper1.shadowRoot
@@ -280,7 +290,7 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
       const oLink = document.createElement('link');
       oLink.rel = "stylesheet";
       oLink.href = cssurl;
-      root?.appendChild(oLink);
+      isLocal ? document.head.appendChild(oLink) : root?.appendChild(oLink);
     }
 
     this.styleElements.forEach(style => {
@@ -305,28 +315,15 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     });
   }
 
-  private registerVueComponent = (el: string | HTMLElement, vueComponent: object, id: string) => {
-    const vueInstance = singleSpaVue({
-      Vue,
-      appOptions: {
-        el: typeof el === 'string' ? `#${el}` : el,
-        render: (h: any) => h('div', { attrs: { id } }, [h(vueComponent, {
-          props: { ...this.props.extraProps },
-        })]),
-      },
-    });
-    return ({
-      bootstrap: vueInstance.bootstrap,
-      mount: vueInstance.mount,
-      unmount: vueInstance.unmount,
-    })
-  }
+  protected abstract registerComponent(
+    el: string | HTMLElement,
+    vueComponent: object,
+    id: string,
+  ): { bootstrap: LifecyclesProp, mount: LifecyclesProp, unmount: LifecyclesProp }
 
-  private isVueComponent = (component: any): boolean => {
-    return component && typeof component === 'object' && typeof component.render === 'function';
-  }
+  protected abstract isComponent(component: any): boolean;
 
-  private getOriginCode = (url: string, method: string = 'GET', data?: any): Promise<any> => {
+  protected getOriginCode = (url: string, method: string = 'GET', data?: any): Promise<any> => {
     return new Promise((res, rej) => {
       const xhr: XMLHttpRequest = XMLHttpRequest ? new XMLHttpRequest() :
         ActiveXObject ? new ActiveXObject('Microsoft.XMLHTTP') : null;
@@ -347,49 +344,9 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     });
   }
 
-  private executeOriginCode = (code: string): Self => {
-    const internalSelf: Self = { Vue };
-    const reg = this.publicPathReg;
-    const publicPath = this.currentPublicPath;
-    const url = this.currentUrl;
-    if (reg.test(code)) {
-      /**
-       * 自己开发组件的时候使用可以配置publicPath
-       * 为了让react-vue-mirco-frame支持加载静态资源
-       * 可以给publicPath设置为一个约定好的值
-       * 然后这里用传进来的origin替换掉这个约定好的值
-       * 这个约定好的值默认是 __WILL_BE_REPLACED_PUBLIC_PATH__
-       */
-      const codeStr = code.replace(reg, publicPath);
-      const originCodeFn = new Function("self", codeStr);
-      originCodeFn(internalSelf);
-    } else {
-      /**
-       * 如果没有配置这个值的话 就以hack的方式注入origin
-       * webpack打包出来的umd代码里面会动态监测document.currentScript
-       * 通过临时给这个currentScript换掉的方式让webpack将origin注入进代码
-       */
-      const temporaryDocument = (window.document as any);
-      const originCurrentScript = window.document.currentScript;
-      const temporaryScript = document.createElement('script');
-      const defineProperty = Object.defineProperty;
-      temporaryScript.src = url;
-      defineProperty(temporaryDocument, 'currentScript', {
-        value: temporaryScript,
-        writable: true,
-      });
-      const originCodeFn = new Function("self", code);
-      originCodeFn(internalSelf);
-      defineProperty(temporaryDocument, 'currentScript', {
-        value: originCurrentScript,
-        writable: false,
-      });
-      temporaryScript.remove && temporaryScript.remove();
-    };
-    return internalSelf;
-  } 
+  protected abstract executeOriginCode(code: string): any;
 
-  private getOriginVueComponent = (): object => {
+  protected getOriginComponent = (): object => {
     if (this.loadType === 'script') {
       return new Promise(res => {
         const oScript = document.createElement('script');
@@ -399,26 +356,21 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
         document.body.appendChild(oScript);
         const runId = this.runId = toolFunction(this.vueWrapper1) as number;
         (window as any).module = {};
-        (window as any).require = (str: string) => (str === 'vue') && Vue;
+        (window as any).require = (str: string) => (str === 'vue') && this.framework;
         window.exports = null;
         oScript.onload = () => {
-          this.component = window.module.exports;
+          const exports = window.module.exports;
+          if (exports.__esModule) {
+            this.component = exports.default;
+          } else {
+            this.component = exports;
+          }
           toolFunction(runId, false);
           if (!toolFunction()) {
             window.module = originModule;
             window.require = originRequire;
             window.exports = originExports;
           }
-          /**
-           * 这里留个口可以用来以后支持esm规范的组件
-           * const temporaryExports = window.exports;
-           * let component = null;
-           * for (const propName in temporaryExports) {
-           * if (!temporaryExports.hasOwnProperty(propName)) continue;
-           *   component = temporaryExports[propName]
-           *   delete temporaryExports[propName];
-           * }
-           */
           oScript.remove();
           res(this.component);
         };
@@ -426,7 +378,7 @@ export default class VueIframe extends React.PureComponent<IProps, {}> {
     } else {
       console.warn('暂时关闭xhr的加载方式, 将使用script方式加载')
       this.loadType = 'script';
-      return new Promise(res => res(this.getOriginVueComponent()));
+      return new Promise(res => res(this.getOriginComponent()));
       // return new Promise(res => {
       //   this.getOriginCode(this.currentUrl).then(data => {
       //     /** 通过XMLHttpRequest获取源代码 */

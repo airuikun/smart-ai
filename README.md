@@ -5,8 +5,8 @@
 
 # demo 体验
 ```
-git clone git@github.com:y805939188/react-vue-mirco-frame.git
-cd react-vue-mirco-frame
+git clone git@github.com:y805939188/react-vue-micro-frame.git
+cd react-vue-micro-frame
 npm install
 npm run start
 ```
@@ -14,12 +14,12 @@ npm run start
 
 # 使用方式
 ```js
-npm install --save react-vue-mirco-frame
+npm install --save react-vue-micro-frame
 ```
 ```js
   /** 加载远程组件 **/
   import React from 'react';
-  import VueIFrame from 'react-vue-mirco-frame';
+  import VueIFrame from 'react-vue-micro-frame';
   const Test = () => (
     <div>
       <VueIFrame jsurl="http://originPath/vueComponent.umd.js"/>
@@ -29,7 +29,7 @@ npm install --save react-vue-mirco-frame
 ```js
   /** 加载本地组件 **/
   import React from 'react';
-  import VueIFrame from 'react-vue-mirco-frame';
+  import VueIFrame from 'react-vue-micro-frame';
   import VueComponent from './vueComponent.vue';
   const Test = () => (
     <div>
@@ -83,7 +83,7 @@ module.exports = {
   },
 }
 /**
- * react-vue-mirco-frame 组件内部会替换掉提前约定好 ASSET_PATH 以此来加载那些非src属性加载的静态资源
+ * react-vue-micro-frame 组件内部会替换掉提前约定好 ASSET_PATH 以此来加载那些非src属性加载的静态资源
  */
 
 ```

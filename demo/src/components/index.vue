@@ -1,5 +1,5 @@
 <template>
-  <button @click="handleClick" >{{msg}}</button>
+  <button class="ding-button" @click="handleClick" >{{msg}}</button>
 </template>
 
 <script>
@@ -7,7 +7,7 @@ export default {
   name: 'hello',
   data() {
     return {
-      msg: '这是一个vue组件',
+      msg: '这是一个vue组件, 点击会+1',
     }
   },
   methods: {
@@ -17,3 +17,11 @@ export default {
   }
 }
 </script>
+
+<style lang='css' >
+  .ding-button {
+    width: 100px;
+    height: 100px;
+    background-color: greenyellow;
+  }
+</style> 

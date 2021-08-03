@@ -1,7 +1,7 @@
 {
-  "name": "react-vue-mirco-frame",
-  "version": "0.0.9",
-  "description": "react-vue-mirco-frame",
+  "name": "react-vue-micro-frame",
+  "version": "0.0.14",
+  "description": "react-vue-micro-frame",
   "main": "lib/index.js",
   "scripts": {
     "start": "concurrently \"npm run start:demo\" \"npm run start:rollup\" \"node ./mock-component/server.js\"",
@@ -30,6 +30,7 @@
     "clean-webpack-plugin": "^3.0.0",
     "concurrently": "^5.1.0",
     "css-loader": "^3.4.2",
+    "custom-event": "^1.0.1",
     "dtsmake": "0.0.10",
     "express": "^4.17.1",
     "html-webpack-plugin": "^3.2.0",
@@ -65,18 +66,29 @@
     "@types/lodash": "^4.14.149",
     "@types/react": "^16.9.19",
     "@types/react-dom": "^16.9.5",
+    "@types/single-spa-react": "^2.8.3",
     "babel-runtime": "^6.26.0",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "single-spa": "^4.4.3",
+    "single-spa-react": "^2.11.0",
     "single-spa-vue": "1.7.0",
     "vue": "^2.6.11"
   },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:y805939188/react-vue-micro-frame.git"
+  },
   "keywords": [
-    "react-mirco-frontends",
-    "vue-mirco-frontends",
-    "react-vue-mirco-frontends",
-    "mirco-frontends",
-    "react-vue-mirco-frame"
+    "react-micro-frontends",
+    "vue-micro-frontends",
+    "react-vue-micro-frontends",
+    "micro-frontends",
+    "vue-micro-frontends",
+    "react-micro-frontends",
+    "react-vue-micro-frame",
+    "vue-in-react",
+    "vue in react",
+    "react-vue"
   ]
 }

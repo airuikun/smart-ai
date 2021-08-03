@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
 // @ts-ignore
-import VueIFrame from 'external-lib';
-// import VueIFrame from '../../src/index';
+import VueIFrame, { ReactFrame } from '../../src/index';
 import { Tabs } from 'antd';
 import 'antd/dist/antd.css';
 // @ts-ignore
 import VueComponent from './components/index.vue';
 
 const TabPane = Tabs.TabPane;
-
 const Test: React.FC<{}> = () => {
-  const [ number1, setNumber1 ] = useState<number>(1);
+  const [ number1, setNumber1 ] = useState<number>(6);
   const [ active2, setActive2 ] = useState<boolean>(true);
   const [ active3, setActive3 ] = useState<boolean>(true);
   const [ active4, setActive4 ] = useState<boolean>(false);
@@ -28,19 +26,27 @@ const Test: React.FC<{}> = () => {
         <button onClick={handleClick4}>点击激活第三个vue组件 多个不同的vue组件可以共存</button>
       </div>
       <div>
-        <VueIFrame jsurl="http://127.0.0.1:13190/vueComponent2.umd.js" visible={active4} />
+        <VueIFrame jsurl="http://127.0.0.1:20522/vueComponent2.umd.js" visible={active4} />
         <Tabs>
           <TabPane tab={'状态跟踪'} key="1" >
             <VueIFrame component={VueComponent} visible={active2} />
           </TabPane>
           <Tabs.TabPane tab={'查看日志'} key="2" >
             <div className="log-dialog">
-              <VueIFrame jsurl="http://127.0.0.1:13190/vueComponent1.umd.js" visible={active3} />
+              <VueIFrame extraProps={{ number: number1 }} jsurl="http://127.0.0.1:20522/vueComponent1.umd.js" visible={active3} />
             </div>
           </Tabs.TabPane>
           <Tabs.TabPane tab={'凉子阿姨'} key="3" >
             <div className="log-dialog">
-              <VueIFrame jsurl="http://127.0.0.1:13190/vueComponent3.umd.js" />
+              <VueIFrame jsurl="http://127.0.0.1:20522/vueComponent3.umd.js" />
+            </div>
+          </Tabs.TabPane>
+          <Tabs.TabPane tab={'React组件'} key="4" >
+            <div className="log-dialog">
+              <ReactFrame
+                extraProps={{ number: number1 }}
+                jsurl="http://127.0.0.1:20522/reactComponent2.js"
+              />
             </div>
           </Tabs.TabPane>
         </Tabs>

@@ -11,7 +11,7 @@ const isDev = mode === 'development';
 const originPath = process.cwd();
 
 export default {
-  input: `${originPath}/src/index.tsx`,
+  input: `${originPath}/src/index.ts`,
   output: {
     file: `${originPath}/lib/index.js`,
     name: 'react-vue-mirco-frame',

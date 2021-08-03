@@ -223,7 +223,6 @@ HTMLHeadElement.prototype.appendChild = function (newChild) {
 
             (_b = (_a = getWrapper(currentName_1)) === null || _a === void 0 ? void 0 : _a.shadowRoot) === null || _b === void 0 ? void 0 : _b.appendChild(element);
           });
-          return originAppendChild.call(this, element.cloneNode());
         }
     }
   }
@@ -261,25 +260,30 @@ function (_super) {
               if (!this.currentUrl && !this.component) throw Error('组件必须接收一个url或者component属性');
               rootEleWrapper = this.rootNodeWrapper.current;
               if (!rootEleWrapper) throw Error('没有vue组件的root节点');
-              _a = this.props.component;
-              if (_a) return [3
+              if (!this.isLocal) return [3
               /*break*/
-              , 2];
+              , 1];
+              _a = this.component;
+              return [3
+              /*break*/
+              , 3];
+
+            case 1:
               return [4
               /*yield*/
               , this.getOriginVueComponent()];
 
-            case 1:
-              _a = _b.sent();
-              _b.label = 2;
-
             case 2:
+              _a = _b.sent();
+              _b.label = 3;
+
+            case 3:
               component = _a;
               if (!this.isVueComponent(component)) return [2
               /*return*/
               ];
               this.registerComponentAndMount(component);
-              this.addComponentToPage(rootEleWrapper);
+              this.addComponentToPage(rootEleWrapper, this.isLocal);
               return [2
               /*return*/
               ];
@@ -340,13 +344,13 @@ function (_super) {
       });
     };
 
-    _this.addComponentToPage = function (rootEleWrapper) {
+    _this.addComponentToPage = function (rootEleWrapper, isLocal) {
       var _a, _b;
       /** 如果visible是false就暂时先把display置为none 之后再remove */
 
 
       if (!_this.visible) _this.vueWrapper1.style.display = 'none';
-      var supportShadowDOM = !!_this.vueWrapper1.attachShadow;
+      var supportShadowDOM = !!_this.vueWrapper1.attachShadow && !isLocal;
       var root = supportShadowDOM ? _this.vueWrapper1.attachShadow({
         mode: 'open'
       }) && _this.vueWrapper1.shadowRoot : _this.vueWrapper1;
@@ -356,7 +360,7 @@ function (_super) {
         var oLink = document.createElement('link');
         oLink.rel = "stylesheet";
         oLink.href = cssurl;
-        (_a = root) === null || _a === void 0 ? void 0 : _a.appendChild(oLink);
+        isLocal ? document.head.appendChild(oLink) : (_a = root) === null || _a === void 0 ? void 0 : _a.appendChild(oLink);
       }
 
       _this.styleElements.forEach(function (style) {
@@ -573,7 +577,9 @@ function (_super) {
 
     _this.visible = typeof visible === 'boolean' ? visible : true; // 获取到外部传进来的vue组件
 
-    _this.component = component; // 获取到外部传来的url
+    _this.component = component; // 判断是否是本地组件
+
+    _this.isLocal = !!component; // 获取到外部传来的url
 
     _this.currentUrl = jsurl || ''; // 获取外部传进来的css的url 可能没有
 
