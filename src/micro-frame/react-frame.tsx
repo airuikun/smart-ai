@@ -23,7 +23,7 @@ export default class ReactIframe extends BaseFrame {
     this.currentPublicPath = `${(httpReg.exec(this.currentUrl) || [''])[0]}/`;
   }
 
-  getDom = () => this.vueWrapper2;
+  getDom = () => this.oWrapper2;
 
   registerComponent = (el: string | HTMLElement, reactComponent: object, id: string) => {
     const reactInstance = singleSpaReact({

@@ -11,6 +11,7 @@ interface IProps0 {
   extraProps?: { [propName: string]: any };
   loadType?: 'xhr' | 'script';
   instable_publicPath?: string;
+  instable_externals?: { [prop: string]: any };
 }
 
 interface IProps1 extends IProps0 {
@@ -172,12 +173,13 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
   protected publicPathReg: RegExp; // 用来替换源代码中关键字的正则
   protected rootNodeWrapper: RefType = React.createRef<HTMLDivElement>(); // vue挂载节点是根据el再往上找它的爹
   protected parcel: any; // parcel实例
-  protected vueWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
-  protected vueWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
+  protected oWrapper1: HTMLDivElement = document.createElement('div'); // 挂载vue以及隐藏vue需要两个节点
+  protected oWrapper2: HTMLDivElement = document.createElement('div'); // 真正vue需要挂载的节点
   protected styleElements: HTMLLinkElement[] | HTMLStyleElement[] = []; // 用来临时存放要被添加的style标签
   protected runId: number = -1; // 当前正在跑的vue组件的runId 唯一
   protected isLocal: boolean; // 是否是本地组件
   protected extraProps: any; // 额外的属性
+  private instable_externals: IProps0['instable_externals']; // 可能用不到
 
   constructor(props: IProps) {
     super(props);
@@ -199,9 +201,13 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
     // 生成每个iframe的唯一表示
     this.currentName = name || (url ? `${url.replace(httpReg, '')}.${unique}` : `root-${unique}`);
     // vue会挂载到这个节点2上
-    this.vueWrapper2.id = this.currentName;
+    this.oWrapper2.id = this.currentName;
     // 把wrapper暂时存到外头
-    getWrapper(this.currentName, this.vueWrapper1);
+    getWrapper(this.currentName, this.oWrapper1);
+    this.oWrapper1.style.height = '100%';
+    this.oWrapper2.style.height = '100%';
+    // 暂时可能用不到的
+    this.instable_externals = this.props.instable_externals || {};
   }
 
   componentDidMount = async () => {
@@ -222,18 +228,18 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
       this.visible = visible;
       const rootNodeWrapper = this.rootNodeWrapper.current;
       if (!visible) {
-        if (rootNodeWrapper?.contains(this.vueWrapper1)) {
-          this.vueWrapper1 = rootNodeWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
+        if (rootNodeWrapper?.contains(this.oWrapper1)) {
+          this.oWrapper1 = rootNodeWrapper?.removeChild(this.oWrapper1) as HTMLDivElement;
         } else {
           console.warn('无法卸载该组件, 发生错误的原因可能是没有加载到该组件');
         }
       } else {
-        rootNodeWrapper?.appendChild(this.vueWrapper1);
+        rootNodeWrapper?.appendChild(this.oWrapper1);
       }
     }
     if (!equal(extraProps, this.extraProps)) {
       this.extraProps = { ...extraProps };
-      this.parcel.update(extraProps);
+      this.parcel && this.parcel.update(extraProps);
     }
   }
 
@@ -244,12 +250,12 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
    * 这个时候应该确认下项目是否还正常运行(八成报错)
    */
   componentWillUnmount = () => {
-    if (this.rootNodeWrapper.current?.contains(this.vueWrapper1)) {
-      (this.rootNodeWrapper.current as any).removeChild(this.vueWrapper1);
+    if (this.rootNodeWrapper.current?.contains(this.oWrapper1)) {
+      (this.rootNodeWrapper.current as any).removeChild(this.oWrapper1);
     } else {
       console.warn('无法卸载该组件, 发生错误的原因可能是没有加载到该组件');
     }
-    this.parcel.unmount();
+    this.parcel && this.parcel.unmount();
     this.parcel = null;
     const allUnmount = toolFunction(this.runId, -1);
     if (allUnmount) {
@@ -258,8 +264,8 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
       selectorMap.querySelectorAll(false);
       HTMLHeadElement.prototype.appendChild = originAppendChild;
     }
-    (this.vueWrapper1 as any) = null;
-    (this.vueWrapper2 as any) = null;
+    (this.oWrapper1 as any) = null;
+    (this.oWrapper2 as any) = null;
     (this.rootNodeWrapper as any) = null;
     (this.styleElements as any) = [];
   }
@@ -267,7 +273,7 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
   protected getDom = (): string | HTMLDivElement => '-';
 
   protected registerComponentAndMount = (component: object): void => {
-    const lifecycles = this.registerComponent(this.vueWrapper2, component, this.currentName);
+    const lifecycles = this.registerComponent(this.oWrapper2, component, this.currentName);
     this.parcel = mountRootParcel(
       (lifecycles as ParcelConfig),
       {
@@ -279,12 +285,12 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
 
   protected addComponentToPage = (rootEleWrapper: HTMLDivElement, isLocal?: boolean): void => {
     /** 如果visible是false就暂时先把display置为none 之后再remove */
-    if (!this.visible) this.vueWrapper1.style.display = 'none';
-    const supportShadowDOM = !!this.vueWrapper1.attachShadow && !isLocal;
+    if (!this.visible) this.oWrapper1.style.display = 'none';
+    const supportShadowDOM = !!this.oWrapper1.attachShadow && !isLocal;
     const root = supportShadowDOM ? (
-      (this.vueWrapper1.attachShadow({ mode: 'open' })) &&
-      this.vueWrapper1.shadowRoot
-    ) : this.vueWrapper1;
+      (this.oWrapper1.attachShadow({ mode: 'open' })) &&
+      this.oWrapper1.shadowRoot
+    ) : this.oWrapper1;
     const cssurl = this.currentCSSUrl;
     if (cssurl) {
       const oLink = document.createElement('link');
@@ -296,8 +302,8 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
     this.styleElements.forEach(style => {
       root?.appendChild(style);
     });
-    root?.appendChild(this.vueWrapper2);
-    rootEleWrapper.appendChild(this.vueWrapper1);
+    root?.appendChild(this.oWrapper2);
+    rootEleWrapper.appendChild(this.oWrapper1);
     setTimeout(() => {
       /**
        * 对于一上来visible就是不可见的组件
@@ -309,9 +315,9 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
        * vue组件内部那些选择dom的方法可能会产生问题
        */
       if (!this.visible) {
-        this.vueWrapper1 = rootEleWrapper?.removeChild(this.vueWrapper1) as HTMLDivElement;
+        this.oWrapper1 = rootEleWrapper?.removeChild(this.oWrapper1) as HTMLDivElement;
       }
-      this.vueWrapper1.style.display = 'block';
+      this.oWrapper1.style.display = 'block';
     });
   }
 
@@ -354,9 +360,15 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
         oScript.src = this.currentUrl;
         oScript.setAttribute('data-id', this.currentName);
         document.body.appendChild(oScript);
-        const runId = this.runId = toolFunction(this.vueWrapper1) as number;
+        const runId = this.runId = toolFunction(this.oWrapper1) as number;
         (window as any).module = {};
-        (window as any).require = (str: string) => (str === 'vue') && this.framework;
+        (window as any).require = (str: string) => {
+          if (!str) return;
+          if (str === 'vue' || str === 'react') return this.framework;
+          const external = (this.instable_externals || {})[str];
+          if (!external) throw Error(`组件可能需要 ${str} 作为external`);
+          return external;
+        };
         window.exports = null;
         oScript.onload = () => {
           const exports = window.module.exports;
@@ -386,7 +398,7 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
       //     const internalSelf = this.executeOriginCode(data);
       //     if (!this.currentName) (this.currentName = this.getCurrentName(internalSelf));
       //     if (!this.currentName) throw Error('没有获取到vue组件');
-      //     this.vueWrapper2.id = this.currentName;
+      //     this.oWrapper2.id = this.currentName;
       //     this.component = internalSelf[this.currentName];
       //     res(this.component);
       //   }).catch(err => {
@@ -400,5 +412,5 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
     } 
   }
 
-  render = () => (<div id={this.props.id || ''} ref={this.rootNodeWrapper} />)
+  render = () => (<div style={{ height: '100%' }} id={this.props.id || ''} ref={this.rootNodeWrapper} />)
 }
