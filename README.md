@@ -52,8 +52,8 @@ npm install --save react-vue-micro-frame
 &emsp;&emsp;NOTE: Components development must use the **umd specification**.</br>
 &emsp;&emsp;I recommend using "vue-cli" to write a "vue" component.
 </br>
-&emsp;&emsp;<a href="https://cli.vuejs.org/guide/build-targets.html#library" target="_blank">How to write a "vue" component with use "vue-cli"</a>
-&emsp;&emsp; <a href="https://www.npmjs.com/package/shin-cli" target="_blank">And you can use the "shin-cli" to easily create a component that meets the umd.</a>
+&emsp;&emsp;<a href="https://cli.vuejs.org/guide/build-targets.html#library" target="_blank">How to write a "vue" component with use "vue-cli"</a></br>
+&emsp;&emsp;<a href="https://www.npmjs.com/package/shin-cli" target="_blank">And you can use the "shin-cli" to easily create a react component that meets the umd.</a>
 </br>
 
 # Parameter
