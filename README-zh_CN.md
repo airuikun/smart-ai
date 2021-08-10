@@ -51,7 +51,7 @@ npm install --save react-vue-micro-frame
 ```
 &emsp;&emsp;注意: 组件的开发请务必使用**umd规范**。
 &emsp;&emsp;建议使用vue-cli提供的<a href="https://cli.vuejs.org/zh/guide/build-targets.html#%E5%BA%94%E7%94%A8" target="_blank">构建库</a>的功能</br>
-&emsp;&emsp;<a href="https://www.npmjs.com/package/shin-cli" target="_blank">或者可以使用“shin-cli”去简单地创建一个符合umd规范的react组件</a>
+&emsp;&emsp;或者可以使用<a href="https://github.com/y805939188/elf-cli" target="_blank">shin-cli</a>简单地创建一个符合umd规范的react组件
 </br>
 
 # 参数
@@ -72,7 +72,12 @@ npm install --save react-vue-micro-frame
 - [x] 跨域加载
 - [x] 静态资源加载
 - [x] css样式隔离
-- [ ] 加载整个vue应用
+
+# TODO
+- [ ] 调研是否可基于 qiankun2.x 重构
+- [ ] 加载整个 vue/react 应用
+- [ ] frame 组件外渲染 (由于当前设计类似于原生 iframe 标签，所以无法做到组件范围外的渲染)
+- [ ] frame 组件与外部通信的pipeline (由于当前设计类似原生 iframe 标签，只能接受外部参数，但是没有专门用来和外部其他组件通信的 pipeline，这对于组件外部需要状态管理等场景很有必要)
 
 # 可能存在的问题
 1. 样式隔离使用的是shadow dom的方式, 所以暂时不支持ie

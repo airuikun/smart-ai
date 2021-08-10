@@ -74,7 +74,13 @@ Only jsurl or component attributes are required, other parameters are optional
 - [x] Cross domain loading
 - [x] Static resource loading
 - [x] css style isolation
-- [ ] Load the entire vue application
+
+
+# TODO
+- [ ] Research if the component can be refactor with qiankun2.x
+- [ ] Load the entire vue/react application from origin
+- [ ] Render content to outside of the micro-frame. (At present, because of the react-vue-micro-frame be wrote with reference to primordial <iframe />, so the component can not render content to outside)
+- [ ] design a pipeline to communication between the micro-frame and outside components. (This is necessary for scenarios with external using state management e.g. redux)
 
 # Potential problem
 1. The style isolation uses the shadow dom method, so temporarily does not support ie
