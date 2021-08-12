@@ -51,7 +51,7 @@ npm install --save react-vue-micro-frame
 ```
 &emsp;&emsp;注意: 组件的开发请务必使用**umd规范**。
 &emsp;&emsp;建议使用vue-cli提供的<a href="https://cli.vuejs.org/zh/guide/build-targets.html#%E5%BA%94%E7%94%A8" target="_blank">构建库</a>的功能</br>
-&emsp;&emsp;或者可以使用<a href="https://github.com/y805939188/elf-cli" target="_blank">shin-cli</a>简单地创建一个符合umd规范的react组件
+&emsp;&emsp;或者可以使用<a href="https://github.com/y805939188/elf-cli" target="_blank">elf-cli</a>简单地创建一个符合umd规范的react组件
 </br>
 
 # 参数

@@ -91,7 +91,14 @@ const getWrapper = ((obj: { [ name: string ]: HTMLDivElement }) => {
 })({});
 
 const originSelectors = HTMLDocument.prototype as any;
-const initHackSelector = (
+const originAppendChild = HTMLHeadElement.prototype.appendChild;
+const originModule = window.module;
+const originRequire = window.require;
+const originExports = window.exports;
+const LINK_TAG_NAME = 'LINK';
+const STYLE_TAG_NAME = 'STYLE';
+
+const hackSelector = (
   name: keyof ISelecotr,
   originSelectorFn:
     Document['getElementById'] |
@@ -123,40 +130,38 @@ const initHackSelector = (
   };
 }
 
-const originModule = window.module;
-const originRequire = window.require;
-const originExports = window.exports;
 const selectorMap = {
-  'getElementById': initHackSelector('getElementById', originSelectors['getElementById']),
-  'querySelector': initHackSelector('querySelector', originSelectors['querySelector']),
-  'querySelectorAll': initHackSelector('querySelectorAll', originSelectors['querySelectorAll']),
+  'getElementById': hackSelector('getElementById', originSelectors['getElementById']),
+  'querySelector': hackSelector('querySelector', originSelectors['querySelector']),
+  'querySelectorAll': hackSelector('querySelectorAll', originSelectors['querySelectorAll']),
 };
-selectorMap.getElementById();
-selectorMap.querySelector();
-selectorMap.querySelectorAll();
 
-const originAppendChild = HTMLHeadElement.prototype.appendChild;
-const LINK_TAG_NAME = 'LINK';
-const STYLE_TAG_NAME = 'STYLE';
+const initSelectorHack = () => {
+  selectorMap.getElementById();
+  selectorMap.querySelector();
+  selectorMap.querySelectorAll(); 
+}
 
-HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, newChild: T) {
-  const element = newChild as any;
-  if (element.tagName) {
-    switch (element.tagName) {
-      case LINK_TAG_NAME:
-      case STYLE_TAG_NAME: {
-        const currentScript = document.currentScript;
-        /** 获取到currentName */
-        const currentName = currentScript?.getAttribute('data-id');
-        if (!currentName) return originAppendChild.call(this, element) as T;
-        setTimeout(() => {
-          getWrapper(currentName)?.shadowRoot?.appendChild(element);
-        });
+const initAppendChildHack = () => {
+  HTMLHeadElement.prototype.appendChild = function <T extends Node>(this: any, newChild: T) {
+    const element = newChild as any;
+    if (element.tagName) {
+      switch (element.tagName) {
+        case LINK_TAG_NAME:
+        case STYLE_TAG_NAME: {
+          const currentScript = document.currentScript;
+          /** 获取到currentName */
+          const currentName = currentScript?.getAttribute('data-id');
+          if (!currentName) return originAppendChild.call(this, element) as T;
+          setTimeout(() => {
+            getWrapper(currentName)?.shadowRoot?.appendChild(element);
+          });
+        }
       }
     }
-  }
-  return originAppendChild.call(this, element) as T;
-};
+    return originAppendChild.call(this, element) as T;
+  };
+}
 
 const httpReg = new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i');
 
@@ -183,6 +188,8 @@ export default abstract class VueIframe extends React.PureComponent<IProps, {}> 
 
   constructor(props: IProps) {
     super(props);
+    initAppendChildHack();
+    initSelectorHack();
     const { loadType, jsurl: url, cssurl, component, name, visible, extraProps } = props;
     const unique = uniqueId();
     this.loadType = loadType || 'script';

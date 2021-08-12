@@ -156,8 +156,14 @@ var getWrapper = function (obj) {
 }({});
 
 var originSelectors = HTMLDocument.prototype;
+var originAppendChild = HTMLHeadElement.prototype.appendChild;
+var originModule = window.module;
+var originRequire = window.require;
+var originExports = window.exports;
+var LINK_TAG_NAME = 'LINK';
+var STYLE_TAG_NAME = 'STYLE';
 
-var initHackSelector = function initHackSelector(name, originSelectorFn) {
+var hackSelector = function hackSelector(name, originSelectorFn) {
   return function (cancelHack) {
     var HTMLDocumentPrototype = HTMLDocument.prototype;
     if (cancelHack) return HTMLDocumentPrototype[name] = originSelectorFn;
@@ -182,46 +188,45 @@ var initHackSelector = function initHackSelector(name, originSelectorFn) {
   };
 };
 
-var originModule = window.module;
-var originRequire = window.require;
-var originExports = window.exports;
 var selectorMap = {
-  'getElementById': initHackSelector('getElementById', originSelectors['getElementById']),
-  'querySelector': initHackSelector('querySelector', originSelectors['querySelector']),
-  'querySelectorAll': initHackSelector('querySelectorAll', originSelectors['querySelectorAll'])
+  'getElementById': hackSelector('getElementById', originSelectors['getElementById']),
+  'querySelector': hackSelector('querySelector', originSelectors['querySelector']),
+  'querySelectorAll': hackSelector('querySelectorAll', originSelectors['querySelectorAll'])
 };
-selectorMap.getElementById();
-selectorMap.querySelector();
-selectorMap.querySelectorAll();
-var originAppendChild = HTMLHeadElement.prototype.appendChild;
-var LINK_TAG_NAME = 'LINK';
-var STYLE_TAG_NAME = 'STYLE';
 
-HTMLHeadElement.prototype.appendChild = function (newChild) {
-  var _a;
+var initSelectorHack = function initSelectorHack() {
+  selectorMap.getElementById();
+  selectorMap.querySelector();
+  selectorMap.querySelectorAll();
+};
 
-  var element = newChild;
+var initAppendChildHack = function initAppendChildHack() {
+  HTMLHeadElement.prototype.appendChild = function (newChild) {
+    var _a;
 
-  if (element.tagName) {
-    switch (element.tagName) {
-      case LINK_TAG_NAME:
-      case STYLE_TAG_NAME:
-        {
-          var currentScript = document.currentScript;
-          /** 获取到currentName */
+    var element = newChild;
 
-          var currentName_1 = (_a = currentScript) === null || _a === void 0 ? void 0 : _a.getAttribute('data-id');
-          if (!currentName_1) return originAppendChild.call(this, element);
-          setTimeout(function () {
-            var _a, _b;
+    if (element.tagName) {
+      switch (element.tagName) {
+        case LINK_TAG_NAME:
+        case STYLE_TAG_NAME:
+          {
+            var currentScript = document.currentScript;
+            /** 获取到currentName */
 
-            (_b = (_a = getWrapper(currentName_1)) === null || _a === void 0 ? void 0 : _a.shadowRoot) === null || _b === void 0 ? void 0 : _b.appendChild(element);
-          });
-        }
+            var currentName_1 = (_a = currentScript) === null || _a === void 0 ? void 0 : _a.getAttribute('data-id');
+            if (!currentName_1) return originAppendChild.call(this, element);
+            setTimeout(function () {
+              var _a, _b;
+
+              (_b = (_a = getWrapper(currentName_1)) === null || _a === void 0 ? void 0 : _a.shadowRoot) === null || _b === void 0 ? void 0 : _b.appendChild(element);
+            });
+          }
+      }
     }
-  }
 
-  return originAppendChild.call(this, element);
+    return originAppendChild.call(this, element);
+  };
 };
 
 var httpReg = new RegExp("^https?://[\\w-.]+(:\\d+)?", 'i');
@@ -512,6 +517,8 @@ function (_super) {
       });
     };
 
+    initAppendChildHack();
+    initSelectorHack();
     var loadType = props.loadType,
         url = props.jsurl,
         cssurl = props.cssurl,

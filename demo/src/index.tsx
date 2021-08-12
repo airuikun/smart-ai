@@ -7,6 +7,8 @@ import 'antd/dist/antd.css';
 // @ts-ignore
 import VueComponent from './components/index.vue';
 
+// import Issue3 from '../issues/issue.3.demo';
+
 const TabPane = Tabs.TabPane;
 const Test: React.FC<{}> = () => {
   const [ number1, setNumber1 ] = useState<number>(6);
@@ -54,6 +56,13 @@ const Test: React.FC<{}> = () => {
     </div>
   )
 }
+
+
+// const Test: React.FC<{}> = () => {
+//   return (
+//     <Issue3 />
+//   )
+// }
 
 
 ReactDOM.render(
