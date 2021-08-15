@@ -7,7 +7,7 @@
 
 # demo 体验
 ```
-git clone git@github.com:y805939188/react-vue-micro-frame.git
+git clone git@github.com
 cd react-vue-micro-frame
 npm install
 npm run start

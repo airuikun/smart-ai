@@ -1,6 +1,6 @@
 {
-  "name": "react-vue-micro-frame",
-  "version": "0.1.7",
+  "name": "micro-tech",
+  "version": "0.1.9",
   "description": "react-vue-micro-frame",
   "main": "lib/index.js",
   "scripts": {
@@ -63,11 +63,13 @@
     "webpack-dev-server": "^3.10.3"
   },
   "dependencies": {
+    "@tencent/micro-tech-vue": "^1.7.0",
     "@types/lodash": "^4.14.149",
     "@types/react": "^16.9.19",
     "@types/react-dom": "^16.9.5",
     "@types/single-spa-react": "^2.8.3",
     "babel-runtime": "^6.26.0",
+    "css.escape": "^1.5.1",
     "react": "^16.12.0",
     "react-dom": "^16.12.0",
     "single-spa": "^4.4.3",
@@ -77,7 +79,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:y805939188/react-vue-micro-frame.git"
+    "url": ""
   },
   "keywords": [
     "react-micro-frontends",

@@ -1,5 +1,6 @@
 import Vue from 'vue';
-import singleSpaVue from 'single-spa-vue';
+// import singleSpaVue from 'single-spa-vue';
+import singleSpaVue from './single-spa-vue';
 import BaseFrame, { IProps } from './base';
 
 const __VUE_INTERNAL_INIT__ = Vue.prototype._init;

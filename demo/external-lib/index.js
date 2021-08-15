@@ -1,5 +1,5 @@
 import Vue from 'vue';
-import singleSpaVue from 'single-spa-vue';
+import 'css.escape';
 import React from 'react';
 import { mountRootParcel } from 'single-spa';
 import uniqueId from 'lodash/uniqueId';
@@ -98,6 +98,122 @@ function __generator(thisArg, body) {
         } catch (e) { op = [6, e]; y = 0; } finally { f = t = 0; }
         if (op[0] & 5) throw op[1]; return { value: op[0] ? op[1] : void 0, done: true };
     }
+}
+
+var defaultOpts = {
+  // required opts
+  Vue: null,
+  appOptions: null,
+  template: null
+};
+function singleSpaVue(userOpts) {
+  if (_typeof(userOpts) !== "object") {
+    throw new Error("single-spa-vue requires a configuration object");
+  }
+
+  var opts = __assign(__assign({}, defaultOpts), userOpts);
+
+  if (!opts.Vue) {
+    throw new Error("single-spa-vuejs must be passed opts.Vue");
+  }
+
+  if (!opts.appOptions) {
+    throw new Error("single-spa-vuejs must be passed opts.appOptions");
+  } // Just a shared object to store the mounted object state
+
+
+  var mountedInstances = {};
+  return {
+    bootstrap: bootstrap.bind(null, opts, mountedInstances),
+    mount: mount.bind(null, opts, mountedInstances),
+    unmount: unmount.bind(null, opts, mountedInstances),
+    update: update.bind(null, opts, mountedInstances)
+  };
+}
+
+function bootstrap(opts) {
+  if (opts.loadRootComponent) {
+    return opts.loadRootComponent().then(function (root) {
+      return opts.rootComponent = root;
+    });
+  } else {
+    return Promise.resolve();
+  }
+}
+
+function mount(opts, mountedInstances, props) {
+  return Promise.resolve().then(function () {
+    var appOptions = __assign({}, opts.appOptions);
+
+    if (props.domElement && !appOptions.el) {
+      appOptions.el = props.domElement;
+    }
+
+    if (!appOptions.el) {
+      var htmlId = "single-spa-application:" + props.name;
+      appOptions.el = "#" + CSS.escape(htmlId) + " .single-spa-container";
+      var domEl = document.getElementById(htmlId);
+
+      if (!domEl) {
+        domEl = document.createElement("div");
+        domEl.id = htmlId;
+        document.body.appendChild(domEl);
+      } // single-spa-vue@>=2 always REPLACES the `el` instead of appending to it.
+      // We want domEl to stick around and not be replaced. So we tell Vue to mount
+      // into a container div inside of the main domEl
+
+
+      if (!domEl.querySelector(".single-spa-container")) {
+        var singleSpaContainer = document.createElement("div");
+        singleSpaContainer.className = "single-spa-container";
+        domEl.appendChild(singleSpaContainer);
+      }
+
+      mountedInstances.domEl = domEl;
+    }
+
+    if (!appOptions.render && !appOptions.template && opts.rootComponent) {
+      appOptions.render = function (h) {
+        return h(opts.rootComponent);
+      };
+    }
+
+    if (!appOptions.data) {
+      appOptions.data = {};
+    }
+
+    appOptions.data = __assign(__assign({}, appOptions.data), props);
+    mountedInstances.instance = new opts.Vue(appOptions);
+
+    if (mountedInstances.instance.bind) {
+      mountedInstances.instance = mountedInstances.instance.bind(mountedInstances.instance);
+    }
+
+    return mountedInstances.instance;
+  });
+}
+
+function update(opts, mountedInstances, props) {
+  return Promise.resolve().then(function () {
+    var data = __assign(__assign({}, opts.appOptions.data || {}), props);
+
+    for (var prop in data) {
+      mountedInstances.instance[prop] = data[prop];
+    }
+  });
+}
+
+function unmount(opts, mountedInstances) {
+  return Promise.resolve().then(function () {
+    mountedInstances.instance.$destroy();
+    mountedInstances.instance.$el.innerHTML = "";
+    delete mountedInstances.instance;
+
+    if (mountedInstances.domEl) {
+      mountedInstances.domEl.innerHTML = "";
+      delete mountedInstances.domEl;
+    }
+  });
 }
 
 /**
