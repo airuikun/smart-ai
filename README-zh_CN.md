@@ -7,7 +7,7 @@
 # demo 体验
 ```
 git clone git@github.com
-cd micro-tech
+cd mircro-tech
 npm install
 npm run start
 ```
