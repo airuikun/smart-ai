@@ -2,13 +2,12 @@
 
 # React加载vue的微前端组件
 ##### &emsp;&emsp;基于single-spa的react微前端组件
-&emsp;&emsp;我有一个梦想, 希望可以在react项目中像加载一个```<iframe>```标签一样简单地加载其他框架的组件或应用。
-</br>
+预计single-spa原理，实现react项目加载vue组件
 
 # demo 体验
 ```
 git clone git@github.com
-cd react-vue-micro-frame
+cd micro-tech
 npm install
 npm run start
 ```
@@ -16,12 +15,12 @@ npm run start
 
 # 使用方式
 ```js
-npm install --save react-vue-micro-frame
+npm install --save micro-tech
 ```
 ```js
   /** 加载远程组件 **/
   import React from 'react';
-  import VueFrame from 'react-vue-micro-frame';
+  import VueFrame from 'micro-tech';
   const Test = () => (
     <div>
       <VueIFrame jsurl="http://originPath/vueComponent.umd.js"/>
@@ -31,7 +30,7 @@ npm install --save react-vue-micro-frame
 ```js
   /** 加载本地组件 **/
   import React from 'react';
-  import VueFrame from 'react-vue-micro-frame';
+  import VueFrame from 'micro-tech';
   import VueComponent from './vueComponent.vue';
   const Test = () => (
     <div>
@@ -42,7 +41,7 @@ npm install --save react-vue-micro-frame
 ```js
   /** 也可以加载一个远程的react组件 **/
   import React from 'react';
-  import { ReactFrame } from 'react-vue-micro-frame';
+  import { ReactFrame } from 'micro-tech';
   const Test = () => (
     <div>
       <ReactFrame jsurl="http://reactComponentAddress.umd.js" />
