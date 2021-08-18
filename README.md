@@ -2,13 +2,12 @@
 
 # React micro-frontends component that loads vue
 ##### &emsp;&emsp;This is a single-spa based react micro front-end component
-&emsp;&emsp;I have a dream, I hope that can load a components of other frameworks as simple as loading a ```<iframe>``` tag in a react project.
-</br>
+base on single-spa，you can load vue component in the react project
 
 # Experience an demo
 ```
 git clone git@github.com
-cd react-vue-micro-frame
+cd mircro-tech
 npm install
 npm run start
 ```
@@ -16,12 +15,12 @@ npm run start
 
 # How to use
 ```js
-npm install --save react-vue-micro-frame
+npm install --save micro-tech
 ```
 ```js
   /** Load remote components **/
   import React from 'react';
-  import VueFrame from 'react-vue-micro-frame';
+  import VueFrame from 'micro-tech';
   const Test = () => (
     <div>
       <VueFrame jsurl="http://originPath/vueComponent.umd.js"/>
@@ -31,7 +30,7 @@ npm install --save react-vue-micro-frame
 ```js
   /** Load local components **/
   import React from 'react';
-  import VueFrame from 'react-vue-micro-frame';
+  import VueFrame from 'micro-tech';
   import VueComponent from './vueComponent.vue';
   const Test = () => (
     <div>
@@ -42,7 +41,7 @@ npm install --save react-vue-micro-frame
 ```js
   /** You can also load a remote react component **/
   import React from 'react';
-  import { ReactFrame } from 'react-vue-micro-frame';
+  import { ReactFrame } from 'micro-tech';
   const Test = () => (
     <div>
       <ReactFrame jsurl="http://reactComponentAddress.umd.js" />
