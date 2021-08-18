@@ -1,7 +1,7 @@
 {
   "name": "micro-tech",
-  "version": "0.1.9",
-  "description": "react-vue-micro-frame",
+  "version": "1.0.0",
+  "description": "micro-tech",
   "main": "lib/index.js",
   "scripts": {
     "start": "concurrently \"npm run start:demo\" \"npm run start:rollup\" \"node ./mock-component/server.js\"",
@@ -63,7 +63,6 @@
     "webpack-dev-server": "^3.10.3"
   },
   "dependencies": {
-    "@tencent/micro-tech-vue": "^1.7.0",
     "@types/lodash": "^4.14.149",
     "@types/react": "^16.9.19",
     "@types/react-dom": "^16.9.5",
